@@ -846,7 +846,7 @@ if uploaded_file is not None:
     with col_center:
         # Show uploaded image initially
         image_placeholder = st.empty()
-        image_placeholder.image(image, caption="Uploaded MRI Scan", use_container_width=True)
+        image_placeholder.image(image, caption="Uploaded MRI Scan", use_column_width=True)
 
     if st.button("🔬 Run Analysis", use_container_width=True):
         # ----- Detection -----
@@ -919,13 +919,13 @@ if uploaded_file is not None:
             with col_center:
                 if circle_info:
                     annotated = draw_tumor_overlay(image, circle_info)
-                    image_placeholder.image(annotated, caption="Tumor Detected — Hover below for details", use_container_width=True)
+                    image_placeholder.image(annotated, caption="Tumor Detected — Hover below for details", use_column_width=True)
 
                     # Save overlay for PDF
                     overlay_path = "demo_overlay.png"
                     annotated.save(overlay_path)
                 else:
-                    image_placeholder.image(image, caption="Tumor detected (spatial localization unavailable)", use_container_width=True)
+                    image_placeholder.image(image, caption="Tumor detected (spatial localization unavailable)", use_column_width=True)
 
             # Severity calculation
             if area_mm2 is not None and area_mm2 > 0:
