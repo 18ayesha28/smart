@@ -74,6 +74,10 @@ generated_report.pdf
 demo_overlay.png
 *.pdf
 
+# Patient visit history (local SQLite persistence for longitudinal tracking)
+patient_history.db
+*.db
+
 # Datasets and archives
 data/
 datasets/

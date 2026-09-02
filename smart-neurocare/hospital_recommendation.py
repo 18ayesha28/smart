@@ -11,7 +11,7 @@ Transparent, explainable rule-based clinical triage engine.
 
 from dataclasses import dataclass, field
 from math import radians, sin, cos, sqrt, atan2
-from typing import Optional, Any, Union
+from typing import Optional
 
 
 @dataclass
@@ -137,50 +137,18 @@ def default_hospitals() -> list[Hospital]:
 
 
 def recommend_hospitals(
-    patient: Any,
-    analysis_or_hospitals: Any = None,
-    hospitals_list: Optional[list[Hospital]] = None,
+    patient: PatientContext,
+    hospitals: list[Hospital],
     top_k: int = 5,
-    top_n: int = 5,
 ) -> list[dict]:
     """
-    Score and rank hospitals for a given patient context. Supports both signatures:
-      1) recommend_hospitals(patient_context, hospitals, top_k=5)
-      2) recommend_hospitals(patient_profile, analysis_result, hospitals_list, top_n=3)
+    Score and rank hospitals for a given patient context.
+
+    Single, explicit signature by design: patient/tumor context is always a
+    PatientContext, the hospital pool is always passed explicitly (e.g.
+    default_hospitals()), and top_k controls how many results come back.
     """
-    if hospitals_list is not None:
-        hospitals = hospitals_list
-        k = top_n
-    elif isinstance(analysis_or_hospitals, list):
-        hospitals = analysis_or_hospitals
-        k = top_k
-    else:
-        hospitals = default_hospitals()
-        k = top_n
-
-    lat = getattr(patient, "latitude", 12.9716)
-    lon = getattr(patient, "longitude", 77.5946)
-    budget = getattr(patient, "max_budget", None)
-    insurance = getattr(patient, "insurance_provider", None)
-
-    tumor_type = getattr(patient, "tumor_type", None)
-    severity_score = getattr(patient, "severity_score", None)
-
-    if analysis_or_hospitals is not None and not isinstance(analysis_or_hospitals, list):
-        if not tumor_type and hasattr(analysis_or_hospitals, "tumor_type"):
-            tumor_type = analysis_or_hospitals.tumor_type
-        if not severity_score:
-            if hasattr(analysis_or_hospitals, "severity_score") and analysis_or_hospitals.severity_score:
-                severity_score = analysis_or_hospitals.severity_score
-            elif hasattr(analysis_or_hospitals, "severity") and analysis_or_hospitals.severity:
-                severity_score = analysis_or_hospitals.severity
-
-    if not tumor_type:
-        tumor_type = "glioma"
-    if not severity_score:
-        severity_score = "moderate"
-
-    severity_boost = SEVERITY_WEIGHT_BOOST.get(str(severity_score).lower(), 0.0)
+    severity_boost = SEVERITY_WEIGHT_BOOST.get(str(patient.severity_score).lower(), 0.0)
     weights = {
         "specialization": 0.35 + severity_boost,
         "quality": 0.25,
@@ -191,12 +159,12 @@ def recommend_hospitals(
 
     results = []
     for hospital in hospitals:
-        distance_km = haversine_distance_km(lat, lon, hospital.latitude, hospital.longitude)
-        spec_score = specialization_match_score(hospital, tumor_type)
+        distance_km = haversine_distance_km(patient.latitude, patient.longitude, hospital.latitude, hospital.longitude)
+        spec_score = specialization_match_score(hospital, patient.tumor_type)
         quality_score = (hospital.rating / 5.0) * 0.5 + (hospital.success_rate / 100.0) * 0.5
         dist_score = distance_score(distance_km)
-        cost_score = cost_fit_score(hospital, budget)
-        ins_score = insurance_score(hospital, insurance)
+        cost_score = cost_fit_score(hospital, patient.max_budget)
+        ins_score = insurance_score(hospital, patient.insurance_provider)
 
         final_score = (
             spec_score * weights["specialization"]
@@ -222,7 +190,7 @@ def recommend_hospitals(
         })
 
     results.sort(key=lambda r: r["match_score"], reverse=True)
-    return results[:k]
+    return results[:top_k]
 
 
 if __name__ == "__main__":

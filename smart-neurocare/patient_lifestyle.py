@@ -2,11 +2,12 @@
 Smart NeuroCare — Patient Profile, Lifestyle Recommendation Engine, and
 Expanded Medical Report Generator.
 
-Extends the original report_generator.py to:
+Responsibilities:
   - Capture deep patient details (age, weight, height, habits, symptoms, family history)
   - Generate personalized lifestyle guidance (diet, exercise, habit changes)
-  - Include recommended hospitals directly inside the PDF report
-  - Keep the mandatory medical disclaimer
+  - Generate the full PDF report: findings, hospitals, treatment response
+    (if available, from treatment_response.py), lifestyle guidance, and the
+    mandatory medical disclaimer
 
 This module is rule-based and transparent by design — for healthcare-adjacent
 lifestyle guidance, patients and clinicians should be able to see exactly
@@ -54,10 +55,6 @@ class PatientDetails:
     existing_conditions: list = field(default_factory=list)   # e.g. ["diabetes", "hypertension"]
     family_history_cancer: bool = False
     symptoms: list = field(default_factory=list)  # e.g. ["headaches", "seizures", "vision changes"]
-    max_budget: Optional[float] = None
-    insurance_provider: Optional[str] = None
-    latitude: float = 12.9716
-    longitude: float = 77.5946
 
     @property
     def bmi(self) -> float:
@@ -76,10 +73,6 @@ class PatientDetails:
         return "obese"
 
 
-# Alias for backward compatibility across modules
-PatientProfile = PatientDetails
-
-
 @dataclass
 class TumorAnalysisResult:
     tumor_detected: bool
@@ -87,33 +80,14 @@ class TumorAnalysisResult:
     tumor_type: Optional[str] = None
     classification_confidence: Optional[float] = None
     tumor_area_mm2: Optional[float] = None
-    area_mm2: Optional[float] = None
     tumor_volume_mm3: Optional[float] = None
     max_diameter_mm: Optional[float] = None
     perpendicular_diameter_mm: Optional[float] = None
     product_bidirectional_mm2: Optional[float] = None
     severity_score: Optional[str] = None       # low, moderate, high, critical
-    severity: Optional[str] = None
     segmentation_overlay_path: Optional[str] = None
-    overlay_image_path: Optional[str] = None
-    model_version: str = "v2.4-clinical"
+    model_version: str = "unspecified"
     scan_date: str = ""
-
-    def __post_init__(self):
-        if self.area_mm2 is not None and self.tumor_area_mm2 is None:
-            self.tumor_area_mm2 = self.area_mm2
-        elif self.tumor_area_mm2 is not None and self.area_mm2 is None:
-            self.area_mm2 = self.tumor_area_mm2
-
-        if self.severity is not None and self.severity_score is None:
-            self.severity_score = self.severity
-        elif self.severity_score is not None and self.severity is None:
-            self.severity = self.severity_score
-
-        if self.overlay_image_path is not None and self.segmentation_overlay_path is None:
-            self.segmentation_overlay_path = self.overlay_image_path
-        elif self.segmentation_overlay_path is not None and self.overlay_image_path is None:
-            self.overlay_image_path = self.segmentation_overlay_path
 
 
 
@@ -383,10 +357,6 @@ def generate_full_report(
 
     doc.build(story)
     return output_path
-
-
-# Alias for backward compatibility across modules
-generate_patient_report = generate_full_report
 
 
 if __name__ == "__main__":

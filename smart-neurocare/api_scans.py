@@ -1,10 +1,16 @@
 """
 Smart NeuroCare — FastAPI router: MRI upload & analysis triggering.
 
-Illustrates the async workflow:
+NOT a functional backend. This is a design sketch of the async workflow a
+production deployment would need:
   1. Patient uploads MRI -> stored in object storage, DB row created (status=uploaded)
   2. Analysis job pushed to queue -> worker runs preprocessing + ML pipeline
   3. Client polls GET /scans/{scan_id} or /analyses/{analysis_id} for status/results
+
+The object storage, database, and queue dependencies below are stubs that
+raise NotImplementedError or are commented out — this module is not imported
+by, or wired into, the Streamlit app (app.py). It illustrates an API shape
+for a future real deployment; it does not run one today.
 
 pip install fastapi uvicorn python-multipart boto3
 """
