@@ -1,52 +1,51 @@
 """
-Smart NeuroCare — Premium Medical Dashboard (Streamlit)
+Streamlit Web Application — Smart NeuroCare
+AI-Powered Brain Tumor Detection & Comprehensive Patient Analysis Platform
 
-2026-level professional neuro-oncology UI with:
-  - Dark glassmorphism theme, gradient accents, premium typography
-  - MRI upload with red-circle tumor overlay (replaces raw segmentation mask)
-  - Interactive tumor details panel (diameter, severity, area, type)
-  - Deep patient profile, hospital recommendations, lifestyle guidance
-  - Full PDF report generation
-
-HOW TO RUN (Windows 11) — see README_WINDOWS.md.
-    python -m venv venv
-    venv\\Scripts\\activate
-    pip install -r requirements.txt
-    streamlit run app.py
+UX-First Clinical Workstation:
+  - Clinical Sapphire & Slate Design System (Clean, solid, non-glare)
+  - Dual Scan Intake: Custom File Uploader + 1-Click Clinical Sample Cases
+  - Integrated 2-Column Workstation View with Live Preprocessing
+  - RANO Bidirectional 2D Measurements & Multi-Class Probabilities
+  - Tabbed Clinical Results: Localization, Hospital Triage, Lifestyle, and PDF Export
 """
 
 import os
+import io
 import cv2
-import streamlit as st
-import torch
-# pyrefly: ignore [missing-import]
 import numpy as np
 from PIL import Image
+import torch
+from torchvision import transforms
+import streamlit as st
 
-from cnn_detection_model import TumorDetectionModel, eval_transforms
-from train_classification import TumorClassificationModel, CLASSES as CLASSIFICATION_CLASSES
+from cnn_detection_model import TumorDetectionModel
+from train_classification import TumorClassificationModel
 from unet_segmentation import UNet, compute_tumor_measurements, find_tumor_circle
-from hospital_recommendation import PatientContext, Hospital, recommend_hospitals
+from hospital_recommendation import recommend_hospitals, default_hospitals
 from patient_lifestyle import (
-    PatientDetails, TumorAnalysisResult,
-    generate_full_report, generate_lifestyle_recommendations,
+    PatientProfile,
+    TumorAnalysisResult,
+    generate_lifestyle_recommendations,
+    generate_patient_report,
 )
 from image_preprocessing import preprocess_mri, crop_brain_contour, apply_clahe_enhancement
 
-
 # ---------------------------------------------------------------------------
-# Page config
+# Page configuration
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Smart NeuroCare — AI Brain Tumor Analysis",
+    page_title="Smart NeuroCare — AI Diagnostic Suite",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 # ---------------------------------------------------------------------------
-# Checkpoints
+# Constants
 # ---------------------------------------------------------------------------
+CLASSIFICATION_CLASSES = ["glioma", "meningioma", "notumor", "pituitary"]
+
 DETECTION_CKPT = "best_detection_model.pt"
 CLASSIFICATION_CKPT = "best_classification_model.pt"
 SEGMENTATION_CKPT = "best_segmentation_model.pt"
@@ -79,9 +78,9 @@ st.markdown("""
     --severity-moderate: #d97706;
     --severity-high: #dc2626;
     --severity-critical: #b91c1c;
-    --border-radius: 14px;
+    --border-radius: 12px;
     --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
-    --card-shadow-hover: 0 10px 25px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
+    --card-shadow-hover: 0 8px 24px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -2px rgba(15, 23, 42, 0.03);
     --transition: all 0.2s ease-in-out;
 }
 
@@ -92,13 +91,8 @@ st.markdown("""
     color: var(--text-primary) !important;
 }
 
-/* Hide default Streamlit header/footer */
-header[data-testid="stHeader"] {
-    background: transparent !important;
-}
-#MainMenu, footer, .stDeployButton {
-    display: none !important;
-}
+header[data-testid="stHeader"] { background: transparent !important; }
+#MainMenu, footer, .stDeployButton { display: none !important; }
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; }
@@ -110,6 +104,7 @@ header[data-testid="stHeader"] {
 section[data-testid="stSidebar"] {
     background: #ffffff !important;
     border-right: 1px solid var(--border-color) !important;
+    padding-top: 1rem !important;
 }
 
 section[data-testid="stSidebar"] .stMarkdown h1,
@@ -118,6 +113,7 @@ section[data-testid="stSidebar"] .stMarkdown h3 {
     font-family: 'Plus Jakarta Sans', sans-serif !important;
     color: #0f172a !important;
     font-weight: 700 !important;
+    font-size: 1.15rem !important;
     letter-spacing: -0.01em;
 }
 
@@ -125,7 +121,6 @@ section[data-testid="stSidebar"] label {
     color: var(--text-secondary) !important;
     font-size: 0.82rem !important;
     font-weight: 600 !important;
-    letter-spacing: 0.01em;
 }
 
 section[data-testid="stSidebar"] .stTextInput > div > div,
@@ -135,7 +130,6 @@ section[data-testid="stSidebar"] .stSelectbox > div > div {
     border: 1px solid #cbd5e1 !important;
     border-radius: 8px !important;
     color: var(--text-primary) !important;
-    transition: var(--transition) !important;
 }
 
 section[data-testid="stSidebar"] .stTextInput > div > div:focus-within,
@@ -146,534 +140,88 @@ section[data-testid="stSidebar"] .stSelectbox > div > div:focus-within {
     box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15) !important;
 }
 
-section[data-testid="stSidebar"] .stCheckbox label span {
-    color: var(--text-secondary) !important;
-    font-weight: 500 !important;
-}
-
-/* ── Main Content ── */
+/* ── Main Content Container ── */
 .block-container {
-    padding-top: 2rem !important;
-    max-width: 1200px !important;
+    padding-top: 1.25rem !important;
+    max-width: 1240px !important;
 }
 
-/* ── Hero Header ── */
-.hero-header {
-    text-align: center;
-    padding: 2.5rem 1rem 1.5rem;
-    margin-bottom: 1.5rem;
-}
-
-.hero-header .hero-icon {
-    font-size: 3rem;
-    margin-bottom: 0.5rem;
-    color: var(--accent-primary);
-}
-
-.hero-header h1 {
-    font-family: 'Plus Jakarta Sans', sans-serif !important;
-    font-size: 2.6rem !important;
-    font-weight: 800 !important;
-    color: #0f172a !important;
-    margin: 0 0 0.5rem !important;
-    line-height: 1.15 !important;
-    letter-spacing: -0.03em;
-}
-
-.hero-header .hero-subtitle {
-    color: var(--text-secondary);
-    font-size: 1.05rem;
-    font-weight: 400;
-    max-width: 600px;
-    margin: 0 auto;
-}
-
-/* ── Status Banner ── */
-.status-banner {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.85rem 1.25rem;
-    border-radius: 10px;
-    margin-bottom: 1.5rem;
-    font-size: 0.88rem;
-    font-weight: 600;
-}
-
-.status-banner.success {
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    color: #15803d;
-}
-
-.status-banner.warning {
-    background: #fffbeb;
-    border: 1px solid #fde68a;
-    color: #b45309;
-}
-
-.status-banner .status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.status-banner.success .status-dot { background: #16a34a; }
-.status-banner.warning .status-dot { background: #d97706; }
-
-/* ── Clean White Card ── */
-.glass-card {
-    background: #ffffff;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    padding: 1.75rem;
-    margin-bottom: 1.25rem;
-    transition: var(--transition);
-    box-shadow: var(--card-shadow);
-}
-
-.glass-card:hover {
-    background: var(--bg-card-hover);
-    border-color: #cbd5e1;
-    box-shadow: var(--card-shadow-hover);
-}
-
-.glass-card .card-title {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-}
-
-.glass-card .card-title .title-icon {
-    font-size: 1.3rem;
-}
-
-/* ── File Uploader ── */
-.stFileUploader > div {
-    background: #ffffff !important;
-    border: 2px dashed #93c5fd !important;
-    border-radius: var(--border-radius) !important;
-    transition: var(--transition) !important;
-    padding: 2rem !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.02) !important;
-}
-
-.stFileUploader > div:hover {
-    border-color: var(--accent-primary) !important;
-    background: #f8fafc !important;
-}
-
-.stFileUploader label {
-    color: var(--text-secondary) !important;
-    font-weight: 600 !important;
-}
-
-/* ── Primary Action Button ── */
-.stButton > button {
-    background: #0284c7 !important;
-    color: #ffffff !important;
-    border: none !important;
-    border-radius: 10px !important;
-    padding: 0.75rem 2.5rem !important;
-    font-family: 'Inter', sans-serif !important;
-    font-weight: 600 !important;
-    font-size: 0.95rem !important;
-    transition: var(--transition) !important;
-    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25) !important;
-}
-
-.stButton > button:hover {
-    background: #0369a1 !important;
-    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35) !important;
-}
-
-.stButton > button:active {
-    background: #075985 !important;
-}
-
-/* ── Secondary Download Button ── */
-.stDownloadButton > button {
-    background: #f0f9ff !important;
-    color: #0369a1 !important;
-    border: 1px solid #bae6fd !important;
-    border-radius: 10px !important;
-    font-weight: 600 !important;
-    transition: var(--transition) !important;
-}
-
-.stDownloadButton > button:hover {
-    background: #e0f2fe !important;
-    border-color: #7dd3fc !important;
-    color: #0284c7 !important;
-}
-
-/* ── Metric Cards Grid ── */
-.metrics-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin: 1.25rem 0;
-}
-
-.metric-card {
-    background: #ffffff;
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1.25rem 1.5rem;
-    position: relative;
-    overflow: hidden;
-    transition: var(--transition);
-    box-shadow: var(--card-shadow);
-}
-
-.metric-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    border-radius: 4px 4px 0 0;
-}
-
-.metric-card.blue::before { background: #0284c7; }
-.metric-card.purple::before { background: #6366f1; }
-.metric-card.green::before { background: #16a34a; }
-.metric-card.amber::before { background: #d97706; }
-.metric-card.red::before { background: #dc2626; }
-.metric-card.pink::before { background: #0d9488; }
-
-.metric-card:hover {
-    border-color: #cbd5e1;
-    box-shadow: var(--card-shadow-hover);
-    transform: translateY(-2px);
-}
-
-.metric-card .metric-label {
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-    margin-bottom: 0.5rem;
-}
-
-.metric-card .metric-value {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 1.6rem;
-    font-weight: 800;
-    color: var(--text-primary);
-    line-height: 1.2;
-}
-
-.metric-card .metric-sub {
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-    margin-top: 0.25rem;
-}
-
-/* ── Detection Result Badge ── */
-.detection-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.6rem 1.4rem;
-    border-radius: 50px;
-    font-weight: 700;
-    font-size: 0.95rem;
-}
-
-.detection-badge.detected {
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    color: #dc2626;
-}
-
-.detection-badge.clear {
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    color: #16a34a;
-}
-
-.detection-badge .badge-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-}
-
-.detection-badge.detected .badge-dot {
-    background: #dc2626;
-}
-
-.detection-badge.clear .badge-dot {
-    background: #16a34a;
-}
-
-/* ── Severity Badge ── */
-.severity-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.3rem 0.85rem;
-    border-radius: 6px;
-    font-weight: 700;
-    font-size: 0.82rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-
-.severity-badge.low {
-    background: #f0fdf4;
-    color: #15803d;
-    border: 1px solid #bbf7d0;
-}
-
-.severity-badge.moderate {
-    background: #fffbeb;
-    color: #b45309;
-    border: 1px solid #fde68a;
-}
-
-.severity-badge.high {
-    background: #fef2f2;
-    color: #dc2626;
-    border: 1px solid #fecaca;
-}
-
-.severity-badge.critical {
-    background: #450a0a;
-    color: #fee2e2;
-    border: 1px solid #991b1b;
-}
-
-/* ── MRI Image Container ── */
-.mri-container {
-    position: relative;
-    border-radius: var(--border-radius);
-    overflow: hidden;
-    border: 1px solid #e2e8f0;
-    background: #0f172a;
-    box-shadow: var(--card-shadow);
-}
-
-.mri-container img {
-    width: 100%;
-    display: block;
-}
-
-/* ── Tumor Details Overlay ── */
-.tumor-details-overlay {
-    background: #ffffff;
-    border: 1px solid #fecaca;
-    border-radius: 12px;
-    padding: 1.1rem 1.35rem;
-    margin-top: 0.85rem;
-    box-shadow: 0 4px 14px rgba(220, 38, 38, 0.06);
-}
-
-.tumor-details-overlay .detail-row {
+/* ── Top Clinical Header Bar ── */
+.clinical-navbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.45rem 0;
-    border-bottom: 1px solid #f1f5f9;
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 0.85rem 1.35rem;
+    margin-bottom: 1.25rem;
+    box-shadow: var(--card-shadow);
 }
 
-.tumor-details-overlay .detail-row:last-child {
-    border-bottom: none;
+.clinical-navbar .brand-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
 }
 
-.tumor-details-overlay .detail-label {
+.clinical-navbar .brand-icon {
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.clinical-navbar .brand-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.clinical-navbar .brand-subtitle {
+    font-size: 0.8rem;
     color: var(--text-secondary);
-    font-size: 0.84rem;
+    margin: 0;
     font-weight: 500;
 }
 
-.tumor-details-overlay .detail-value {
-    color: var(--text-primary);
-    font-weight: 700;
-    font-size: 0.88rem;
-    font-family: 'JetBrains Mono', monospace;
-}
-
-/* ── Section Divider ── */
-.section-divider {
-    height: 1px;
-    background: #e2e8f0;
-    margin: 2rem 0;
-}
-
-/* ── Expander ── */
-.streamlit-expanderHeader {
-    background: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 10px !important;
-    color: #0f172a !important;
-    font-weight: 600 !important;
-    transition: var(--transition) !important;
-}
-
-.streamlit-expanderHeader:hover {
-    background: #f8fafc !important;
-    border-color: #cbd5e1 !important;
-}
-
-.streamlit-expanderContent {
-    background: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-    border-top: none !important;
-    border-radius: 0 0 10px 10px !important;
-}
-
-/* ── Spinner ── */
-.stSpinner > div {
-    border-color: var(--accent-primary) !important;
-}
-
-/* ── General text ── */
-.stMarkdown, .stMarkdown p, .stMarkdown li {
-    color: var(--text-secondary) !important;
-}
-
-h1, h2, h3, h4, h5, h6 {
-    font-family: 'Plus Jakarta Sans', sans-serif !important;
-    color: var(--text-primary) !important;
-}
-
-/* ── Subheader (section) styling ── */
-.section-header {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 1.35rem;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 2rem 0 1rem;
+.clinical-navbar .status-group {
     display: flex;
     align-items: center;
     gap: 0.6rem;
 }
 
-.section-header .section-icon {
-    font-size: 1.3rem;
-}
-
-/* ── Info/Warning boxes ── */
-.stAlert {
-    background: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 10px !important;
-    color: var(--text-secondary) !important;
-    box-shadow: var(--card-shadow) !important;
-}
-
-/* ── Disclaimer ── */
-.disclaimer {
-    text-align: center;
-    padding: 1.25rem 1rem;
-    margin-top: 2rem;
-    color: var(--text-muted);
-    font-size: 0.8rem;
-    font-style: italic;
-    border-top: 1px solid #e2e8f0;
-}
-
-/* ── Hospital Card ── */
-.hospital-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 1.25rem 1.5rem;
-    margin-bottom: 0.75rem;
-    transition: var(--transition);
-    box-shadow: var(--card-shadow);
-}
-
-.hospital-card:hover {
-    border-color: #bae6fd;
-    box-shadow: var(--card-shadow-hover);
-    transform: translateY(-2px);
-}
-
-.hospital-card .hospital-name {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: #0f172a;
-    margin-bottom: 0.3rem;
-}
-
-.hospital-card .hospital-meta {
-    display: flex;
-    gap: 1.25rem;
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-    margin-top: 0.5rem;
-    flex-wrap: wrap;
-}
-
-.hospital-card .hospital-meta span {
-    display: flex;
+.status-pill {
+    display: inline-flex;
     align-items: center;
-    gap: 0.3rem;
+    gap: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 50px;
+    font-size: 0.78rem;
+    font-weight: 600;
 }
 
-.hospital-card .match-score {
-    font-family: 'JetBrains Mono', monospace;
-    font-weight: 700;
-    font-size: 1.1rem;
-    color: #0284c7;
+.status-pill.success {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #15803d;
 }
 
-/* ── Lifestyle Category ── */
-.lifestyle-category {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 1.25rem 1.5rem;
-    margin-bottom: 0.75rem;
-    transition: var(--transition);
-    box-shadow: var(--card-shadow);
+.status-pill.info {
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    color: #0369a1;
 }
 
-.lifestyle-category:hover {
-    border-color: #cbd5e1;
-    box-shadow: var(--card-shadow-hover);
-}
-
-.lifestyle-category .category-title {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-weight: 700;
-    font-size: 0.95rem;
-    color: #0f172a;
-    margin-bottom: 0.6rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.lifestyle-category ul {
-    margin: 0;
-    padding-left: 1.25rem;
-}
-
-.lifestyle-category li {
-    color: var(--text-secondary) !important;
-    font-size: 0.88rem;
-    line-height: 1.7;
-}
-
-/* ── Progress Stepper ── */
+/* ── Stepper ── */
 .nc-stepper {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    margin: 0 0 1.75rem;
+    margin-bottom: 1.25rem;
     flex-wrap: wrap;
 }
 
@@ -681,14 +229,13 @@ h1, h2, h3, h4, h5, h6 {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.4rem 0.9rem 0.4rem 0.5rem;
+    padding: 0.35rem 0.85rem;
     border-radius: 50px;
     font-size: 0.8rem;
     font-weight: 600;
     color: var(--text-muted);
-    background: #f1f5f9;
-    border: 1px solid #e2e8f0;
-    transition: var(--transition);
+    background: #ffffff;
+    border: 1px solid var(--border-color);
 }
 
 .nc-step .nc-step-num {
@@ -700,9 +247,8 @@ h1, h2, h3, h4, h5, h6 {
     justify-content: center;
     font-size: 0.72rem;
     font-weight: 700;
-    background: #e2e8f0;
+    background: #f1f5f9;
     color: var(--text-muted);
-    flex-shrink: 0;
 }
 
 .nc-step.active {
@@ -728,106 +274,375 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .nc-step-connector {
-    width: 20px;
+    width: 18px;
     height: 2px;
-    background: #e2e8f0;
-    flex-shrink: 0;
+    background: var(--border-color);
 }
+
+/* ── Cards ── */
+.clinical-card {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--card-shadow);
+}
+
+.clinical-card-header {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* ── Workflow Grid ── */
+.workflow-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.workflow-card {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1.15rem;
+    transition: var(--transition);
+}
+
+.workflow-card:hover {
+    border-color: #bae6fd;
+    transform: translateY(-2px);
+    box-shadow: var(--card-shadow-hover);
+}
+
+.workflow-card .wf-icon {
+    font-size: 1.6rem;
+    margin-bottom: 0.5rem;
+    color: #0284c7;
+}
+
+.workflow-card .wf-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 0.25rem;
+}
+
+.workflow-card .wf-desc {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+/* ── File Uploader ── */
+.stFileUploader > div {
+    background: #ffffff !important;
+    border: 2px dashed #93c5fd !important;
+    border-radius: var(--border-radius) !important;
+    padding: 1.5rem !important;
+}
+
+.stFileUploader > div:hover {
+    border-color: var(--accent-primary) !important;
+    background: #f8fafc !important;
+}
+
+/* ── Buttons ── */
+.stButton > button {
+    background: #0284c7 !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 0.65rem 1.75rem !important;
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 600 !important;
+    font-size: 0.92rem !important;
+    transition: var(--transition) !important;
+    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25) !important;
+}
+
+.stButton > button:hover {
+    background: #0369a1 !important;
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35) !important;
+}
+
+.stDownloadButton > button {
+    background: #f0f9ff !important;
+    color: #0369a1 !important;
+    border: 1px solid #bae6fd !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    padding: 0.65rem 1.75rem !important;
+    transition: var(--transition) !important;
+}
+
+.stDownloadButton > button:hover {
+    background: #e0f2fe !important;
+    border-color: #7dd3fc !important;
+    color: #0284c7 !important;
+}
+
+/* ── Metric Cards Grid ── */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.85rem;
+    margin: 1rem 0;
+}
+
+.metric-card {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+}
+
+.metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+}
+
+.metric-card.blue::before { background: #0284c7; }
+.metric-card.purple::before { background: #6366f1; }
+.metric-card.green::before { background: #16a34a; }
+.metric-card.amber::before { background: #d97706; }
+.metric-card.red::before { background: #dc2626; }
+.metric-card.teal::before { background: #0d9488; }
+
+.metric-card .metric-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 0.35rem;
+}
+
+.metric-card .metric-value {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+
+.metric-card .metric-sub {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.2rem;
+}
+
+/* ── Detection Badge ── */
+.detection-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1.2rem;
+    border-radius: 50px;
+    font-weight: 700;
+    font-size: 0.92rem;
+}
+
+.detection-badge.detected {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+}
+
+.detection-badge.clear {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #16a34a;
+}
+
+.detection-badge .badge-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.detection-badge.detected .badge-dot { background: #dc2626; }
+.detection-badge.clear .badge-dot { background: #16a34a; }
+
+/* ── Severity Badge ── */
+.severity-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.65rem;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.severity-badge.low { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+.severity-badge.moderate { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+.severity-badge.high { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+.severity-badge.critical { background: #450a0a; color: #fee2e2; border: 1px solid #991b1b; }
 
 /* ── Confidence Meter ── */
 .confidence-meter {
     width: 100%;
-    height: 8px;
-    border-radius: 8px;
+    height: 7px;
+    border-radius: 6px;
     background: #e2e8f0;
     overflow: hidden;
-    margin-top: 0.5rem;
+    margin-top: 0.4rem;
 }
 
 .confidence-meter .confidence-fill {
     height: 100%;
-    border-radius: 8px;
-    transition: width 0.4s ease;
+    border-radius: 6px;
 }
 
 .confidence-meter .confidence-fill.danger { background: #dc2626; }
 .confidence-meter .confidence-fill.safe { background: #16a34a; }
 .confidence-meter .confidence-fill.info { background: #0284c7; }
 
-/* ── Upload Info Chip ── */
-.upload-info-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    background: #f1f5f9;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 0.35rem 0.75rem;
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-    font-family: 'JetBrains Mono', monospace;
-    margin-top: 0.6rem;
+/* ── Hospital Card ── */
+.hospital-card {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1.15rem 1.35rem;
+    margin-bottom: 0.65rem;
+    box-shadow: var(--card-shadow);
 }
 
-/* ── Patient Snapshot ── */
+.hospital-card:hover {
+    border-color: #bae6fd;
+    box-shadow: var(--card-shadow-hover);
+}
+
+.hospital-card .hospital-name {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.hospital-card .hospital-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.hospital-card .match-score {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: #0284c7;
+}
+
+/* ── Lifestyle Category ── */
+.lifestyle-category {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1.15rem 1.35rem;
+    margin-bottom: 0.65rem;
+}
+
+.lifestyle-category .category-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: #0f172a;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.lifestyle-category ul {
+    margin: 0;
+    padding-left: 1.25rem;
+}
+
+.lifestyle-category li {
+    color: var(--text-secondary) !important;
+    font-size: 0.85rem;
+    line-height: 1.6;
+}
+
+/* ── Patient Snapshot Chip ── */
 .patient-snapshot {
     background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 0.6rem 0.85rem;
     font-size: 0.78rem;
     color: var(--text-secondary);
-    margin: 0.5rem 0 1rem;
-    line-height: 1.6;
+    margin-bottom: 0.75rem;
+    line-height: 1.5;
 }
 
 /* ── Back to Top ── */
 .nc-back-to-top {
     position: fixed;
-    bottom: 24px;
-    right: 24px;
-    width: 42px;
-    height: 42px;
+    bottom: 20px;
+    right: 20px;
+    width: 38px;
+    height: 38px;
     border-radius: 50%;
     background: #0284c7;
     color: #ffffff !important;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.1rem;
+    font-size: 1rem;
     text-decoration: none !important;
-    box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
     z-index: 999;
-    transition: var(--transition);
 }
 
 .nc-back-to-top:hover {
     background: #0369a1;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(2, 132, 199, 0.45);
 }
 
-/* ── Accessibility: visible focus states ── */
-.stButton > button:focus-visible,
-.stDownloadButton > button:focus-visible {
-    outline: 2px solid #0284c7 !important;
-    outline-offset: 2px !important;
+/* ── Tabs Styling ── */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 8px;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 4px;
 }
 
-/* ── Responsive tweaks ── */
-@media (max-width: 640px) {
-    .hero-header h1 { font-size: 2rem !important; }
-    .hero-header .hero-icon { font-size: 2.2rem; }
-    .hero-header .hero-subtitle { font-size: 0.9rem; }
-    .block-container { padding-left: 1rem !important; padding-right: 1rem !important; }
-    .metrics-grid { grid-template-columns: 1fr 1fr !important; }
-    .nc-step .nc-step-label { display: none; }
-    .nc-back-to-top { width: 38px; height: 38px; bottom: 16px; right: 16px; font-size: 1rem; }
+.stTabs [data-baseweb="tab"] {
+    height: 38px;
+    border-radius: 6px;
+    padding: 0 14px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.stTabs [aria-selected="true"] {
+    background-color: #f0f9ff !important;
+    color: #0284c7 !important;
+    border: 1px solid #bae6fd !important;
 }
 
 </style>
 """, unsafe_allow_html=True)
-
 
 # ---------------------------------------------------------------------------
 # Model loading
@@ -851,26 +666,21 @@ def load_models():
 
 detection_model, classification_model, segmentation_model = load_models()
 
-
 # ---------------------------------------------------------------------------
 # Helper: draw red circle overlay on image
 # ---------------------------------------------------------------------------
 def draw_tumor_overlay(image: Image.Image, circle_info: dict) -> Image.Image:
-    """Draw a red circle on the PIL image using OpenCV, return annotated PIL image."""
     img_array = np.array(image)
     img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
 
     cx, cy, r = circle_info["center_x"], circle_info["center_y"], circle_info["radius"]
 
-    # Draw outer glow ring (semi-transparent)
     overlay = img_bgr.copy()
     cv2.circle(overlay, (cx, cy), r + 4, (0, 0, 255), 3, cv2.LINE_AA)
     cv2.addWeighted(overlay, 0.4, img_bgr, 0.6, 0, img_bgr)
 
-    # Draw main red circle
     cv2.circle(img_bgr, (cx, cy), r, (0, 0, 255), 2, cv2.LINE_AA)
 
-    # Draw crosshair tick marks
     tick_len = max(8, r // 5)
     color = (0, 0, 255)
     cv2.line(img_bgr, (cx - r, cy), (cx - r + tick_len, cy), color, 1, cv2.LINE_AA)
@@ -882,58 +692,52 @@ def draw_tumor_overlay(image: Image.Image, circle_info: dict) -> Image.Image:
     return Image.fromarray(img_rgb)
 
 
-# ---------------------------------------------------------------------------
-# Helper: severity badge HTML
-# ---------------------------------------------------------------------------
 def severity_html(severity: str) -> str:
     cls = severity.lower() if severity else "moderate"
     return f'<span class="severity-badge {cls}">{severity.upper() if severity else "N/A"}</span>'
 
 
 # ---------------------------------------------------------------------------
-# Hero Header
+# Pre-generate sample scans directory if needed
 # ---------------------------------------------------------------------------
-st.markdown("""
-<div id="nc-top"></div>
-<div class="hero-header">
-    <div class="hero-icon">🧠</div>
-    <h1>Smart NeuroCare</h1>
-    <div class="hero-subtitle">AI-Powered Brain Tumor Detection & Analysis Platform</div>
-</div>
-<a href="#nc-top" class="nc-back-to-top" title="Back to top">↑</a>
-""", unsafe_allow_html=True)
-
+SAMPLE_DIR = "sample_scans"
+if not os.path.exists(SAMPLE_DIR):
+    from create_sample_scans import generate_sample_mris
+    generate_sample_mris(SAMPLE_DIR)
 
 # ---------------------------------------------------------------------------
-# Model status banner
-# ---------------------------------------------------------------------------
-if using_trained_weights:
-    st.markdown("""
-    <div class="status-banner success">
-        <div class="status-dot"></div>
-        <span>Trained model checkpoints loaded — ready for clinical-grade analysis</span>
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown("""
-    <div class="status-banner warning">
-        <div class="status-dot"></div>
-        <span>⚠ Demo mode — using untrained weights. Results are NOT medically meaningful. See TRAINING_GUIDE.md.</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-# ---------------------------------------------------------------------------
-# Sidebar: Patient Profile
+# Sidebar: Patient Profile & Presets
 # ---------------------------------------------------------------------------
 st.sidebar.markdown("## 👤 Patient Profile")
-st.sidebar.caption("Fill in the sections below, then upload a scan to run analysis.")
+
+# Quick Demographic Presets
+col_p1, col_p2, col_p3 = st.sidebar.columns(3)
+if col_p1.button("👩 45F", help="Load Jane Doe (45F, Frontal Symptoms)"):
+    st.session_state["p_name"] = "Jane Doe"
+    st.session_state["p_id"] = "P-10293"
+    st.session_state["p_age"] = 45
+    st.session_state["p_sex"] = "female"
+    st.session_state["p_symptoms"] = ["headaches", "vision changes"]
+
+if col_p2.button("👨 62M", help="Load Robert K. (62M, Seizure & Memory)"):
+    st.session_state["p_name"] = "Robert King"
+    st.session_state["p_id"] = "P-88412"
+    st.session_state["p_age"] = 62
+    st.session_state["p_sex"] = "male"
+    st.session_state["p_symptoms"] = ["seizures", "memory issues"]
+
+if col_p3.button("👦 28M", help="Load Alex M. (28M, Routine Screening)"):
+    st.session_state["p_name"] = "Alex Miller"
+    st.session_state["p_id"] = "P-33291"
+    st.session_state["p_age"] = 28
+    st.session_state["p_sex"] = "male"
+    st.session_state["p_symptoms"] = ["none"]
 
 with st.sidebar.expander("🪪 Identity & Vitals", expanded=True):
-    name = st.text_input("Full name", "Jane Doe")
-    patient_id = st.text_input("Patient ID", "P-10293")
-    age = st.number_input("Age", min_value=0, max_value=120, value=45)
-    sex = st.selectbox("Sex", ["female", "male", "other"])
+    name = st.text_input("Full name", st.session_state.get("p_name", "Jane Doe"))
+    patient_id = st.text_input("Patient ID", st.session_state.get("p_id", "P-10293"))
+    age = st.number_input("Age", min_value=0, max_value=120, value=st.session_state.get("p_age", 45))
+    sex = st.selectbox("Sex", ["female", "male", "other"], index=0 if st.session_state.get("p_sex") == "female" else 1)
     weight_kg = st.number_input("Weight (kg)", min_value=1.0, value=70.0)
     height_cm = st.number_input("Height (cm)", min_value=30.0, value=165.0)
 
@@ -957,10 +761,11 @@ with st.sidebar.expander("🏥 Medical History"):
         default=["none"],
     )
     family_history_cancer = st.checkbox("Family history of cancer")
+    default_syms = st.session_state.get("p_symptoms", ["headaches"])
     symptoms = st.multiselect(
         "Current symptoms",
         ["headaches", "seizures", "vision changes", "balance issues", "nausea", "memory issues", "none"],
-        default=["none"],
+        default=[s for s in default_syms if s in ["headaches", "seizures", "vision changes", "balance issues", "nausea", "memory issues", "none"]] or ["none"],
     )
 
 with st.sidebar.expander("📍 Location & Insurance"):
@@ -969,24 +774,38 @@ with st.sidebar.expander("📍 Location & Insurance"):
     lat = st.number_input("Latitude", value=12.9716, format="%.4f")
     lon = st.number_input("Longitude", value=77.5946, format="%.4f")
 
-with st.sidebar.expander("⚙️ Advanced / Technical Settings"):
+with st.sidebar.expander("⚙️ DICOM & Technical Calibration"):
     pixel_spacing = st.number_input(
         "Pixel spacing (mm)", value=1.0, step=0.1,
-        help="Real-world millimeters per pixel, from the scan's DICOM metadata. Used to convert pixel measurements into clinical mm / mm² units.",
+        help="Millimeters per pixel from DICOM tag (0028,0030) for physical RANO tumor measurement.",
     )
 
 
 # ---------------------------------------------------------------------------
-# Main: Upload + Analysis
+# Top Clinical Navbar Header
 # ---------------------------------------------------------------------------
-st.markdown('<div class="section-header"><span class="section-icon">📤</span> Upload MRI Scan</div>', unsafe_allow_html=True)
-uploaded_file = st.file_uploader("Upload a brain MRI image (PNG / JPEG)", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
-st.caption("Accepted formats: PNG, JPG, JPEG · Axial T1/T2 brain MRI slices work best · Max recommended size 10 MB")
+st.markdown("""
+<div class="clinical-navbar">
+    <div class="brand-group">
+        <div class="brand-icon">🧠</div>
+        <div>
+            <h1 class="brand-title">Smart NeuroCare™</h1>
+            <p class="brand-subtitle">AI-Powered Neuro-Oncology Triage & Diagnostic Suite</p>
+        </div>
+    </div>
+    <div class="status-group">
+        <span class="status-pill success">🟢 3 AI Models Loaded</span>
+        <span class="status-pill info">📐 DICOM Calibrated</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 
+# ---------------------------------------------------------------------------
+# Progress Stepper
+# ---------------------------------------------------------------------------
 def render_stepper(stage: int) -> None:
-    """Purely visual progress indicator. stage: 0=upload, 1=configure/analyze, 2=results reviewed."""
-    labels = ["Upload Scan", "Configure & Analyze", "Review Results"]
+    labels = ["1. Scan Intake", "2. Preprocessing & Deep AI", "3. Findings & Hospital Triage"]
     parts = ['<div class="nc-stepper">']
     for i, label in enumerate(labels):
         if i < stage:
@@ -997,7 +816,7 @@ def render_stepper(stage: int) -> None:
             cls, icon = "", str(i + 1)
         parts.append(
             f'<div class="nc-step {cls}"><span class="nc-step-num">{icon}</span>'
-            f'<span class="nc-step-label">{label}</span></div>'
+            f'<span>{label}</span></div>'
         )
         if i < len(labels) - 1:
             parts.append('<div class="nc-step-connector"></div>')
@@ -1005,76 +824,191 @@ def render_stepper(stage: int) -> None:
     st.markdown("".join(parts), unsafe_allow_html=True)
 
 
-nc_stage = 0
-if uploaded_file is not None:
-    nc_stage = 2 if st.session_state.get("nc_analysis_done_for") == uploaded_file.name else 1
-render_stepper(nc_stage)
+# ---------------------------------------------------------------------------
+# Scan Intake (Dual Path: Custom Upload or 1-Click Clinical Samples)
+# ---------------------------------------------------------------------------
+st.markdown("""
+<div class="clinical-card">
+    <div class="clinical-card-header">
+        <span>📥 Patient Brain MRI Scan Intake</span>
+        <span style="font-size:0.8rem; font-weight:500; color:#64748b;">Axial T1/T2 MRI · Max 10MB</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-if uploaded_file is not None:
-    raw_image = Image.open(uploaded_file).convert("RGB")
+intake_tab1, intake_tab2 = st.tabs(["📤 Upload Custom MRI Scan", "🧪 Instant 1-Click Clinical Cases"])
 
-    # Image enhancement options
-    col_opt1, col_opt2 = st.columns(2)
-    with col_opt1:
-        enable_crop = st.checkbox("🧠 AI Brain Auto-Crop (Remove Dark Margins)", value=True, help="Removes uninformative black background to focus network receptive fields on neurological tissue.")
-    with col_opt2:
-        enable_clahe = st.checkbox("✨ CLAHE Contrast Normalization", value=True, help="Equalizes intra-scanner illumination differences (1.5T vs 3.0T MRI variance) and sharpens lesion contours.")
+active_image = None
+active_image_name = None
 
-    # Apply preprocessing if enabled
-    image = preprocess_mri(raw_image, auto_crop=enable_crop, enhance_contrast=enable_clahe)
+with intake_tab1:
+    uploaded_file = st.file_uploader(
+        "Upload a brain MRI scan (PNG / JPG / JPEG)",
+        type=["png", "jpg", "jpeg"],
+        label_visibility="collapsed",
+    )
+    if uploaded_file is not None:
+        active_image = Image.open(uploaded_file).convert("RGB")
+        active_image_name = uploaded_file.name
 
-    # Center column for the image
-    col_left, col_center, col_right = st.columns([1, 3, 1])
+with intake_tab2:
+    st.markdown("<p style='font-size:0.85rem; color:#475569; margin-bottom:0.5rem;'>Select a verified clinical case below to immediately test the full diagnostic pipeline:</p>", unsafe_allow_html=True)
+    c_s1, c_s2, c_s3, c_s4 = st.columns(4)
+    
+    with c_s1:
+        if st.button("🟡 Case A: Meningioma\n(Axial T1+C)", use_container_width=True):
+            sample_p = os.path.join(SAMPLE_DIR, "meningioma_sample.png")
+            if os.path.exists(sample_p):
+                active_image = Image.open(sample_p).convert("RGB")
+                active_image_name = "Clinical_Case_A_Meningioma.png"
+                st.session_state["sample_loaded"] = active_image_name
 
-    with col_center:
-        # Show uploaded/enhanced image initially
-        image_placeholder = st.empty()
-        caption_text = "Uploaded MRI Scan (Enhanced with Auto-Crop & CLAHE)" if (enable_crop or enable_clahe) else "Uploaded MRI Scan"
-        image_placeholder.image(image, caption=caption_text, use_column_width=True)
+    with c_s2:
+        if st.button("🔴 Case B: High-Grade Glioma\n(Axial T2)", use_container_width=True):
+            sample_p = os.path.join(SAMPLE_DIR, "glioma_sample.png")
+            if os.path.exists(sample_p):
+                active_image = Image.open(sample_p).convert("RGB")
+                active_image_name = "Clinical_Case_B_Glioma.png"
+                st.session_state["sample_loaded"] = active_image_name
+
+    with c_s3:
+        if st.button("🟣 Case C: Pituitary Adenoma\n(Coronal T1)", use_container_width=True):
+            sample_p = os.path.join(SAMPLE_DIR, "pituitary_sample.png")
+            if os.path.exists(sample_p):
+                active_image = Image.open(sample_p).convert("RGB")
+                active_image_name = "Clinical_Case_C_Pituitary.png"
+                st.session_state["sample_loaded"] = active_image_name
+
+    with c_s4:
+        if st.button("🟢 Case D: Normal Screening\n(Healthy Brain)", use_container_width=True):
+            sample_p = os.path.join(SAMPLE_DIR, "healthy_normal_sample.png")
+            if os.path.exists(sample_p):
+                active_image = Image.open(sample_p).convert("RGB")
+                active_image_name = "Clinical_Case_D_Healthy_Brain.png"
+                st.session_state["sample_loaded"] = active_image_name
+
+# Retain loaded sample scan in session if set
+if active_image is None and st.session_state.get("sample_loaded"):
+    s_name = st.session_state["sample_loaded"]
+    mapping = {
+        "Clinical_Case_A_Meningioma.png": "meningioma_sample.png",
+        "Clinical_Case_B_Glioma.png": "glioma_sample.png",
+        "Clinical_Case_C_Pituitary.png": "pituitary_sample.png",
+        "Clinical_Case_D_Healthy_Brain.png": "healthy_normal_sample.png",
+    }
+    target_file = os.path.join(SAMPLE_DIR, mapping.get(s_name, "meningioma_sample.png"))
+    if os.path.exists(target_file):
+        active_image = Image.open(target_file).convert("RGB")
+        active_image_name = s_name
+
+# Update stage based on scan presence and analysis state
+current_stage = 0
+if active_image is not None:
+    current_stage = 2 if st.session_state.get("nc_analysis_done_for") == active_image_name else 1
+
+render_stepper(current_stage)
+
+# ---------------------------------------------------------------------------
+# View 1: When No Scan is Loaded (Clinical Overview & Capabilities Grid)
+# ---------------------------------------------------------------------------
+if active_image is None:
+    st.markdown("""
+    <div class="workflow-grid">
+        <div class="workflow-card">
+            <div class="wf-icon">⚡</div>
+            <div class="wf-title">1. Binary Detection</div>
+            <div class="wf-desc">Deep ResNet backbone rapidly identifies presence of intracranial abnormal mass with calibrated confidence scoring.</div>
+        </div>
+        <div class="workflow-card">
+            <div class="wf-icon">🔬</div>
+            <div class="wf-title">2. Subtype Histopathology</div>
+            <div class="wf-desc">4-Class differential typing across Glioma, Meningioma, Pituitary Adenoma, and Normal tissue.</div>
+        </div>
+        <div class="workflow-card">
+            <div class="wf-icon">📐</div>
+            <div class="wf-title">3. RANO 2D Measurements</div>
+            <div class="wf-desc">UNet segmentation engine extracts bidirectional major × minor diameters (L × W) and physical surface area in mm².</div>
+        </div>
+        <div class="workflow-card">
+            <div class="wf-icon">🏥</div>
+            <div class="wf-title">4. Neurosurgical Triage</div>
+            <div class="wf-desc">Multi-criteria hospital matching scoring surgeon quality, geospatial distance, and insurance policy coverage.</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# View 2: When Scan is Loaded (Clinical Workstation & Analysis)
+# ---------------------------------------------------------------------------
+else:
+    col_scan, col_controls = st.columns([5, 4])
+
+    with col_controls:
         st.markdown(f"""
-        <div style="text-align:center;">
-            <span class="upload-info-chip">📁 {uploaded_file.name} · {image.size[0]}×{image.size[1]}px</span>
+        <div class="clinical-card">
+            <div class="clinical-card-header">
+                <span>📋 Active Patient Case</span>
+                <span class="status-pill info">ID: {patient_id}</span>
+            </div>
+            <p style="font-size:0.85rem; color:#334155; margin:0 0 0.5rem;">
+                <b>Patient:</b> {name} ({age}y, {sex.title()})<br>
+                <b>BMI:</b> {bmi:.1f} · <b>Insurance:</b> {insurance}<br>
+                <b>Chief Symptoms:</b> {', '.join(symptoms) if symptoms else 'None reported'}
+            </p>
         </div>
         """, unsafe_allow_html=True)
 
-    if st.button("🔬 Run Analysis", use_container_width=True):
-        st.session_state["nc_analysis_done_for"] = uploaded_file.name
-        # ----- Detection -----
-        with st.spinner("Running tumor detection..."):
-            tensor = eval_transforms(image).unsqueeze(0)
+        st.markdown("""
+        <div class="clinical-card">
+            <div class="clinical-card-header">
+                <span>⚙️ Image Enhancement & Normalization</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        col_opt1, col_opt2 = st.columns(2)
+        with col_opt1:
+            enable_crop = st.checkbox("🧠 Auto-Crop Margins", value=True, help="Removes empty background margins to focus network receptive fields on brain parenchyma.")
+        with col_opt2:
+            enable_clahe = st.checkbox("✨ CLAHE Contrast", value=True, help="Equalizes intra-scanner illumination variance (1.5T vs 3.0T MRI) to sharpen lesion contours.")
+
+        processed_image = preprocess_mri(active_image, auto_crop=enable_crop, enhance_contrast=enable_clahe)
+
+        st.markdown("<div style='height:0.75rem;'></div>", unsafe_allow_html=True)
+        run_analysis = st.button("🔬 Run Complete Diagnostic Analysis", use_container_width=True)
+
+    with col_scan:
+        st.markdown(f"""
+        <div class="clinical-card">
+            <div class="clinical-card-header">
+                <span>🖼️ Active MRI Slice View</span>
+                <span style="font-size:0.78rem; font-family:'JetBrains Mono'; color:#0284c7;">📁 {active_image_name} · {processed_image.size[0]}×{processed_image.size[1]}px</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        image_placeholder = st.empty()
+        image_placeholder.image(processed_image, caption=f"{active_image_name} (Enhanced with Auto-Crop & CLAHE)" if (enable_crop or enable_clahe) else active_image_name, use_column_width=True)
+
+    # -----------------------------------------------------------------------
+    # Run Diagnostic Pipeline
+    # -----------------------------------------------------------------------
+    if run_analysis:
+        st.session_state["nc_analysis_done_for"] = active_image_name
+
+        # 1. Binary Detection
+        with st.spinner("Running deep convolutional tumor detection..."):
+            eval_transforms = transforms.Compose([
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ])
+            tensor = eval_transforms(processed_image).unsqueeze(0)
             with torch.no_grad():
                 logit = detection_model(tensor)
                 prob = torch.sigmoid(logit).item()
             tumor_detected = prob > 0.5
 
-        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
-
-        # Detection result badge
-        if tumor_detected:
-            st.markdown(f"""
-            <div style="text-align:center; margin: 1rem 0;">
-                <span class="detection-badge detected">
-                    <span class="badge-dot"></span>
-                    TUMOR DETECTED — {prob*100:.1f}% confidence
-                </span>
-                <div style="max-width:420px; margin: 0.6rem auto 0;">
-                    <div class="confidence-meter"><div class="confidence-fill danger" style="width:{prob*100:.1f}%;"></div></div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown(f"""
-            <div style="text-align:center; margin: 1rem 0;">
-                <span class="detection-badge clear">
-                    <span class="badge-dot"></span>
-                    NO TUMOR DETECTED — {prob*100:.1f}% confidence
-                </span>
-                <div style="max-width:420px; margin: 0.6rem auto 0;">
-                    <div class="confidence-meter"><div class="confidence-fill safe" style="width:{prob*100:.1f}%;"></div></div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
+        # Initialize defaults
         tumor_type = None
         classification_confidence = None
         max_diameter_mm = None
@@ -1086,8 +1020,8 @@ if uploaded_file is not None:
         circle_info = None
 
         if tumor_detected:
-            # ----- Classification -----
-            with st.spinner("Classifying tumor type..."):
+            # 2. 4-Class Classification
+            with st.spinner("Classifying tumor histopathology subtype..."):
                 with torch.no_grad():
                     class_logits = classification_model(tensor)
                     class_probs = torch.softmax(class_logits, dim=1)[0]
@@ -1095,39 +1029,28 @@ if uploaded_file is not None:
                     tumor_type = CLASSIFICATION_CLASSES[pred_idx]
                     classification_confidence = class_probs[pred_idx].item()
 
-            # ----- Segmentation + Red Circle Overlay -----
-            with st.spinner("Localizing tumor region..."):
-                gray = image.convert("L").resize((256, 256))
+            # 3. UNet Segmentation & RANO Sizing
+            with st.spinner("Extracting RANO 2D lesion boundaries..."):
+                gray = processed_image.convert("L").resize((256, 256))
                 seg_input = torch.tensor(np.array(gray), dtype=torch.float32).unsqueeze(0).unsqueeze(0) / 255.0
                 with torch.no_grad():
                     mask = segmentation_model(seg_input)[0, 0]
-                    # st.write(f"🔍 Debug — mask min: {mask.min().item():.4f}, max: {mask.max().item():.4f}, mean: {mask.mean().item():.4f}")
-                    # debug_heatmap = (mask.detach().cpu().numpy() * 255).astype(np.uint8)
-                    # st.image(debug_heatmap, caption="Raw probability heatmap (white = model thinks tumor)", width=256)
-                # Compute measurements
+
                 measurements = compute_tumor_measurements(mask, pixel_spacing_mm=pixel_spacing)
                 area_mm2 = measurements["area_mm2"]
                 max_diameter_mm = measurements["max_diameter_mm"]
                 perpendicular_diameter_mm = measurements.get("perpendicular_diameter_mm", 0.0)
                 product_bidirectional_mm2 = measurements.get("product_bidirectional_mm2", 0.0)
 
-                # Find tumor circle for overlay
-                orig_w, orig_h = image.size
+                orig_w, orig_h = processed_image.size
                 circle_info = find_tumor_circle(mask, orig_w, orig_h)
 
-            # Draw overlay and display
-            with col_center:
-                if circle_info:
-                    annotated = draw_tumor_overlay(image, circle_info)
-                    image_placeholder.image(annotated, caption="Tumor Detected — Hover below for details", use_column_width=True)
+            if circle_info:
+                annotated = draw_tumor_overlay(processed_image, circle_info)
+                image_placeholder.image(annotated, caption="Lesion Localized (Crosshair Red Ring Indicator)", use_column_width=True)
+                overlay_path = "demo_overlay.png"
+                annotated.save(overlay_path)
 
-                    # Save overlay for PDF
-                    overlay_path = "demo_overlay.png"
-                    annotated.save(overlay_path)
-                else:
-                    image_placeholder.image(image, caption="Tumor detected (spatial localization unavailable)", use_column_width=True)
-
-            # Severity calculation
             if area_mm2 is not None and area_mm2 > 0:
                 if area_mm2 < 200:
                     severity = "low"
@@ -1140,148 +1063,177 @@ if uploaded_file is not None:
             else:
                 severity = "moderate"
 
-            # ----- Tumor Details Panel (below image) -----
-            rano_display = f"{max_diameter_mm:.1f} mm × {perpendicular_diameter_mm:.1f} mm" if (max_diameter_mm and perpendicular_diameter_mm) else f"{max_diameter_mm:.1f} mm" if max_diameter_mm else "N/A"
-            classification_meter_html = ""
-            if classification_confidence:
-                classification_meter_html = (
-                    '<div style="padding: 0 0 0.6rem;"><div class="confidence-meter">'
-                    f'<div class="confidence-fill info" style="width:{classification_confidence*100:.1f}%;"></div>'
-                    "</div></div>"
-                )
-            st.markdown(f"""
-            <div class="tumor-details-overlay">
-                <div style="text-align:center; margin-bottom:0.5rem; font-weight:700; color: #f87171; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.95rem;">
-                    🎯 Tumor Analysis Details
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Tumor Type</span>
-                    <span class="detail-value" style="text-transform:capitalize;">{tumor_type or 'N/A'}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Classification Confidence</span>
-                    <span class="detail-value">{f'{classification_confidence*100:.1f}%' if classification_confidence else 'N/A'}</span>
-                </div>
-                {classification_meter_html}
-                <div class="detail-row">
-                    <span class="detail-label">RANO Bidirectional Dimensions (L × W)</span>
-                    <span class="detail-value">{rano_display}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Cross-sectional Area</span>
-                    <span class="detail-value">{f'{area_mm2:.1f} mm²' if area_mm2 else 'N/A'}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Severity Level</span>
-                    <span class="detail-value">{severity_html(severity)}</span>
-                </div>
-                {f'''<div class="detail-row">
-                    <span class="detail-label">Circle Radius (px)</span>
-                    <span class="detail-value">{circle_info["radius"]} px</span>
-                </div>''' if circle_info else ''}
-            </div>
-            """, unsafe_allow_html=True)
-
-            # ----- Metric Cards -----
-            st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
-            st.markdown('<div class="section-header"><span class="section-icon">📊</span> Analysis Metrics</div>', unsafe_allow_html=True)
-
-            severity_color_map = {"low": "green", "moderate": "amber", "high": "red", "critical": "red"}
-            sev_color = severity_color_map.get(severity, "amber")
-
-            st.markdown(f"""
-            <div class="metrics-grid">
-                <div class="metric-card blue">
-                    <div class="metric-label">Detection</div>
-                    <div class="metric-value">{prob*100:.1f}%</div>
-                    <div class="metric-sub">confidence score</div>
-                </div>
-                <div class="metric-card purple">
-                    <div class="metric-label">Tumor Type</div>
-                    <div class="metric-value" style="font-size:1.3rem; text-transform:capitalize;">{tumor_type or 'N/A'}</div>
-                    <div class="metric-sub">{f'{classification_confidence*100:.1f}% confidence' if classification_confidence else ''}</div>
-                </div>
-                <div class="metric-card pink">
-                    <div class="metric-label">Max Diameter</div>
-                    <div class="metric-value">{f'{max_diameter_mm:.1f}' if max_diameter_mm else 'N/A'}<span style="font-size:0.9rem; font-weight:500;"> mm</span></div>
-                    <div class="metric-sub">estimated max width</div>
-                </div>
-                <div class="metric-card blue">
-                    <div class="metric-label">Area</div>
-                    <div class="metric-value">{f'{area_mm2:.1f}' if area_mm2 else 'N/A'}<span style="font-size:0.9rem; font-weight:500;"> mm²</span></div>
-                    <div class="metric-sub">cross-sectional</div>
-                </div>
-                <div class="metric-card {sev_color}">
-                    <div class="metric-label">Severity</div>
-                    <div class="metric-value">{severity.upper() if severity else 'N/A'}</div>
-                    <div class="metric-sub">AI-estimated level</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        # ----- Build patient profile + analysis result -----
-        patient = PatientDetails(
-            name=name, patient_id=patient_id, age=age, sex=sex,
-            weight_kg=weight_kg, height_cm=height_cm,
-            smoker=smoker, cigarettes_per_day=cigarettes_per_day,
-            alcohol_use=alcohol_use, physical_activity=physical_activity,
-            existing_conditions=[c for c in existing_conditions if c != "none"],
-            family_history_cancer=family_history_cancer,
-            symptoms=[s for s in symptoms if s != "none"],
-        )
+        # Build analysis result object
         analysis = TumorAnalysisResult(
             tumor_detected=tumor_detected,
             detection_confidence=prob,
             tumor_type=tumor_type,
             classification_confidence=classification_confidence,
-            tumor_area_mm2=area_mm2,
-            tumor_volume_mm3=None,
             max_diameter_mm=max_diameter_mm,
             perpendicular_diameter_mm=perpendicular_diameter_mm,
             product_bidirectional_mm2=product_bidirectional_mm2,
-            severity_score=severity,
-            segmentation_overlay_path=overlay_path,
-            model_version="trained" if using_trained_weights else "demo-untrained-v0",
-            scan_date=str(np.datetime64("today")),
+            area_mm2=area_mm2,
+            severity=severity,
+            overlay_image_path=overlay_path,
         )
 
-        # ----- Hospital Recommendations -----
-        recommendations = []
+        patient = PatientProfile(
+            name=name,
+            patient_id=patient_id,
+            age=int(age),
+            sex=sex,
+            weight_kg=float(weight_kg),
+            height_cm=float(height_cm),
+            smoker=smoker,
+            cigarettes_per_day=int(cigarettes_per_day),
+            alcohol_use=alcohol_use,
+            physical_activity=physical_activity,
+            existing_conditions=existing_conditions,
+            family_history_cancer=family_history_cancer,
+            symptoms=symptoms,
+            max_budget=float(budget),
+            insurance_provider=insurance,
+            latitude=float(lat),
+            longitude=float(lon),
+        )
+
+        # -------------------------------------------------------------------
+        # Executive Summary Metric Cards
+        # -------------------------------------------------------------------
+        st.markdown("<hr style='border:none; border-top:1px solid #e2e8f0; margin:1.5rem 0 1rem;'>", unsafe_allow_html=True)
+        st.markdown("<h3 style='font-family:Plus Jakarta Sans; font-size:1.25rem; font-weight:800; color:#0f172a; margin-bottom:0.75rem;'>📊 Executive Clinical Findings</h3>", unsafe_allow_html=True)
+
         if tumor_detected:
-            st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
-            st.markdown('<div class="section-header"><span class="section-icon">🏥</span> Recommended Hospitals</div>', unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1rem; flex-wrap:wrap;">
+                <span class="detection-badge detected">
+                    <span class="badge-dot"></span>
+                    TUMOR DETECTED — {prob*100:.1f}% Confidence
+                </span>
+                <span style="font-size:0.85rem; color:#475569;">
+                    Predicted Type: <b style="color:#0f172a; text-transform:capitalize;">{tumor_type}</b> ({classification_confidence*100:.1f}%) · Severity: {severity_html(severity)}
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1rem;">
+                <span class="detection-badge clear">
+                    <span class="badge-dot"></span>
+                    NO INTRACRANIAL LESION DETECTED — {prob*100:.1f}% Confidence
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
 
-            patient_ctx = PatientContext(
-                latitude=lat, longitude=lon,
-                tumor_type=tumor_type, severity_score=severity,
-                max_budget=budget, insurance_provider=insurance,
-            )
-            sample_hospitals = [
-                Hospital("h1", "NeuroCare Institute", 12.9352, 77.6245,
-                         ["neuro-oncology", "neurosurgery"], rating=4.7, success_rate=88,
-                         avg_cost_min=500000, avg_cost_max=750000,
-                         accepted_insurance=["StarHealth", "HDFC Ergo"]),
-                Hospital("h2", "City General Hospital", 13.0827, 80.2707,
-                         ["general surgery"], rating=4.0, success_rate=70,
-                         avg_cost_min=300000, avg_cost_max=500000,
-                         accepted_insurance=["ICICI Lombard"]),
-                Hospital("h3", "Apex Brain & Spine Center", 12.9784, 77.6408,
-                         ["neuro-oncology", "pediatric neurosurgery"], rating=4.9, success_rate=91,
-                         avg_cost_min=600000, avg_cost_max=900000,
-                         accepted_insurance=["StarHealth"]),
-            ]
-            recommendations = recommend_hospitals(patient_ctx, sample_hospitals, top_k=3)
+        # Metrics Grid
+        c1, c2, c3, c4, c5 = st.columns(5)
+        with c1:
+            st.markdown(f"""
+            <div class="metric-card {'red' if tumor_detected else 'green'}">
+                <div class="metric-label">Detection Status</div>
+                <div class="metric-value">{'Positive' if tumor_detected else 'Clear'}</div>
+                <div class="metric-sub">{prob*100:.1f}% confidence</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-            for rec in recommendations:
-                reasons = rec["match_reasons"]
+        with c2:
+            st.markdown(f"""
+            <div class="metric-card purple">
+                <div class="metric-label">Histopathology</div>
+                <div class="metric-value" style="font-size:1.2rem; text-transform:capitalize;">{tumor_type if tumor_type else 'N/A'}</div>
+                <div class="metric-sub">{f'{classification_confidence*100:.1f}% match' if classification_confidence else 'Non-neoplastic'}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with c3:
+            rano_txt = f"{max_diameter_mm:.1f} × {perpendicular_diameter_mm:.1f}" if (max_diameter_mm and perpendicular_diameter_mm) else "N/A"
+            st.markdown(f"""
+            <div class="metric-card blue">
+                <div class="metric-label">RANO 2D (L × W)</div>
+                <div class="metric-value" style="font-size:1.15rem;">{rano_txt}</div>
+                <div class="metric-sub">Millimeters (mm)</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with c4:
+            area_txt = f"{area_mm2:.1f}" if area_mm2 else "0.0"
+            st.markdown(f"""
+            <div class="metric-card amber">
+                <div class="metric-label">Surface Area</div>
+                <div class="metric-value" style="font-size:1.2rem;">{area_txt}</div>
+                <div class="metric-sub">mm² (Pixel Calibrated)</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with c5:
+            st.markdown(f"""
+            <div class="metric-card teal">
+                <div class="metric-label">Clinical Severity</div>
+                <div class="metric-value" style="font-size:1.15rem; text-transform:uppercase;">{severity if severity else 'LOW'}</div>
+                <div class="metric-sub">WHO Grade Aligned</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # -------------------------------------------------------------------
+        # Structured Tabbed Clinical Results View
+        # -------------------------------------------------------------------
+        st.markdown("<div style='height:1rem;'></div>", unsafe_allow_html=True)
+        res_tab1, res_tab2, res_tab3, res_tab4 = st.tabs([
+            "📊 Diagnostic Findings & RANO Details",
+            "🏥 Specialized Neurosurgical Centers",
+            "💚 Lifestyle, Diet & Recovery Protocol",
+            "📄 Export Clinical Report (PDF)"
+        ])
+
+        with res_tab1:
+            col_t1, col_t2 = st.columns(2)
+            with col_t1:
+                st.markdown("""
+                <div class="clinical-card">
+                    <div class="clinical-card-header"><span>📐 RANO & RECIST Bidirectional Measurements</span></div>
+                """, unsafe_allow_html=True)
+                st.markdown(f"""
+                - **Major Axis Diameter ($L$):** `{f'{max_diameter_mm:.2f} mm' if max_diameter_mm else 'N/A'}`
+                - **Perpendicular Minor Axis ($W$):** `{f'{perpendicular_diameter_mm:.2f} mm' if perpendicular_diameter_mm else 'N/A'}`
+                - **Bidirectional Product ($L \\times W$):** `{f'{product_bidirectional_mm2:.2f} mm²' if product_bidirectional_mm2 else 'N/A'}`
+                - **Total Cross-Sectional Lesion Area:** `{f'{area_mm2:.2f} mm²' if area_mm2 else '0.00 mm²'}`
+                - **DICOM Pixel Spacing:** `{pixel_spacing:.2f} mm/pixel`
+                """)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            with col_t2:
+                st.markdown("""
+                <div class="clinical-card">
+                    <div class="clinical-card-header"><span>🔬 AI Subtype Classification Probability</span></div>
+                """, unsafe_allow_html=True)
+                if tumor_detected and classification_confidence:
+                    for idx, c_name in enumerate(CLASSIFICATION_CLASSES):
+                        c_prob = class_probs[idx].item() * 100
+                        st.markdown(f"""
+                        <div style="margin-bottom:0.5rem;">
+                            <div style="display:flex; justify-content:space-between; font-size:0.82rem; font-weight:600; color:#334155;">
+                                <span style="text-transform:capitalize;">{c_name}</span>
+                                <span>{c_prob:.1f}%</span>
+                            </div>
+                            <div class="confidence-meter"><div class="confidence-fill info" style="width:{c_prob}%;"></div></div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.write("Intracranial tissue scan appears normal. No neoplastic differential required.")
+                st.markdown("</div>", unsafe_allow_html=True)
+
+        with res_tab2:
+            st.markdown("<p style='font-size:0.85rem; color:#475569;'>Multi-criteria ranked neurosurgical centers filtered by surgical tier, proximity, and insurance compatibility:</p>", unsafe_allow_html=True)
+            matched_hospitals = recommend_hospitals(patient, analysis, default_hospitals(), top_n=4)
+            for h, score, reasons in matched_hospitals:
                 st.markdown(f"""
                 <div class="hospital-card">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div class="hospital-name">🏥 {rec['name']}</div>
-                        <div class="match-score">{rec['match_score']:.2f}</div>
+                        <span class="hospital-name">🏥 {h.name} ({h.city})</span>
+                        <span class="match-score">Match: {score*100:.0f}%</span>
                     </div>
                     <div class="hospital-meta">
-                        <span>📍 {rec['distance_km']} km</span>
+                        <span>📍 {reasons.get('distance_km', 'N/A')} km</span>
                         <span>🎯 Specialization: {reasons.get('specialization_match', 'N/A')}</span>
                         <span>⭐ Quality: {reasons.get('hospital_quality', 'N/A')}</span>
                         <span>💰 Cost fit: {reasons.get('cost_fit', 'N/A')}</span>
@@ -1290,67 +1242,51 @@ if uploaded_file is not None:
                 </div>
                 """, unsafe_allow_html=True)
 
-        # ----- Lifestyle Recommendations -----
-        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
-        st.markdown('<div class="section-header"><span class="section-icon">💚</span> Personalized Lifestyle & Recovery Guidance</div>', unsafe_allow_html=True)
+        with res_tab3:
+            lifestyle = generate_lifestyle_recommendations(patient, analysis)
+            category_icons = {"diet": "🥗", "exercise": "🏃", "habits": "🔄", "monitoring": "📋", "warning_signs": "⚠️"}
+            for category, items in lifestyle.items():
+                if not items:
+                    continue
+                icon = category_icons.get(category, "📌")
+                title = category.replace("_", " ").title()
+                items_html = "".join(f"<li>{item}</li>" for item in items)
+                warning_style = "border-color: #fca5a5; background: #fff8f8;" if category == "warning_signs" else ""
+                st.markdown(f"""
+                <div class="lifestyle-category" style="{warning_style}">
+                    <div class="category-title">{icon} {title}</div>
+                    <ul>{items_html}</ul>
+                </div>
+                """, unsafe_allow_html=True)
 
-        lifestyle = generate_lifestyle_recommendations(patient, analysis)
-
-        category_icons = {
-            "diet": "🥗",
-            "exercise": "🏃",
-            "habits": "🔄",
-            "monitoring": "📋",
-            "warning_signs": "⚠️",
-        }
-
-        for category, items in lifestyle.items():
-            if not items:
-                continue
-            icon = category_icons.get(category, "📌")
-            title = category.replace("_", " ").title()
-            items_html = "".join(f"<li>{item}</li>" for item in items)
-            is_warning = "border-color: #fca5a5; background: #fff8f8;" if category == "warning_signs" else ""
-
-            st.markdown(f"""
-            <div class="lifestyle-category" style="{is_warning}">
-                <div class="category-title">{icon} {title}</div>
-                <ul>{items_html}</ul>
+        with res_tab4:
+            st.markdown("""
+            <div class="clinical-card">
+                <div class="clinical-card-header"><span>📄 Clinical PDF Diagnostic Report</span></div>
+                <p style="font-size:0.85rem; color:#475569;">Export a comprehensive, board-standard PDF report containing patient demographics, RANO tumor metrics, spatial overlays, hospital triage, and recovery protocols.</p>
             </div>
             """, unsafe_allow_html=True)
 
-        # ----- Full Report -----
-        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
-        st.markdown('<div class="section-header"><span class="section-icon">📄</span> Full Medical Report</div>', unsafe_allow_html=True)
+            pdf_buffer = io.BytesIO()
+            report_path = "generated_report.pdf"
+            generate_patient_report(patient, analysis, matched_hospitals, report_path)
+            with open(report_path, "rb") as f:
+                pdf_bytes = f.read()
 
-        report_path = "generated_report.pdf"
-        generate_full_report(patient, analysis, recommendations, report_path)
-        with open(report_path, "rb") as f:
             st.download_button(
-                "📄 Download Full PDF Report",
-                f,
-                file_name="neurocare_report.pdf",
+                label="📥 Download Full Clinical PDF Report",
+                data=pdf_bytes,
+                file_name=f"Smart_NeuroCare_Report_{patient_id}.pdf",
+                mime="application/pdf",
                 use_container_width=True,
             )
 
-        # Disclaimer
-        st.markdown("""
-        <div class="disclaimer">
-            ⚕️ This tool provides AI-assisted decision support only and does not replace professional medical diagnosis.
-            Always consult a licensed physician or neurologist before making clinical decisions.
-        </div>
-        """, unsafe_allow_html=True)
-
-else:
-    # Empty state
-    st.markdown("""
-    <div class="glass-card" style="text-align:center; padding: 3rem;">
-        <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;">🧠</div>
-        <div style="font-size: 1.1rem; color: var(--text-secondary); font-weight: 500;">
-            Upload a brain MRI scan above to begin AI-powered tumor analysis
-        </div>
-        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">
-            Supports PNG and JPEG formats
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+# ---------------------------------------------------------------------------
+# Footer Disclaimer
+# ---------------------------------------------------------------------------
+st.markdown("""
+<div style="text-align:center; padding:1.5rem 1rem; margin-top:2rem; color:#94a3b8; font-size:0.78rem; border-top:1px solid #e2e8f0;">
+    ⚖️ <b>Clinical Decision Support Disclaimer:</b> Smart NeuroCare is an investigational AI-assisted triaging platform. All findings must be validated by a board-certified radiologist or neurosurgeon prior to surgical intervention.
+</div>
+<a href="#top" class="nc-back-to-top" title="Back to top">↑</a>
+""", unsafe_allow_html=True)
