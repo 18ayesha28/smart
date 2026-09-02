@@ -705,6 +705,163 @@ h1, h2, h3, h4, h5, h6 {
     line-height: 1.7;
 }
 
+/* ── Progress Stepper ── */
+.nc-stepper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin: 0 0 1.75rem;
+    flex-wrap: wrap;
+}
+
+.nc-step {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.9rem 0.4rem 0.5rem;
+    border-radius: 50px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    transition: var(--transition);
+}
+
+.nc-step .nc-step-num {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    background: #e2e8f0;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.nc-step.active {
+    background: var(--accent-gradient-soft);
+    border-color: #93c5fd;
+    color: var(--accent-primary);
+}
+
+.nc-step.active .nc-step-num {
+    background: var(--accent-primary);
+    color: #fff;
+}
+
+.nc-step.done {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    color: #15803d;
+}
+
+.nc-step.done .nc-step-num {
+    background: #16a34a;
+    color: #fff;
+}
+
+.nc-step-connector {
+    width: 20px;
+    height: 2px;
+    background: #e2e8f0;
+    flex-shrink: 0;
+}
+
+/* ── Confidence Meter ── */
+.confidence-meter {
+    width: 100%;
+    height: 8px;
+    border-radius: 8px;
+    background: #e2e8f0;
+    overflow: hidden;
+    margin-top: 0.5rem;
+}
+
+.confidence-meter .confidence-fill {
+    height: 100%;
+    border-radius: 8px;
+    transition: width 0.6s ease;
+}
+
+.confidence-meter .confidence-fill.danger { background: linear-gradient(90deg, #dc2626, #ef4444); }
+.confidence-meter .confidence-fill.safe { background: linear-gradient(90deg, #16a34a, #22c55e); }
+.confidence-meter .confidence-fill.info { background: linear-gradient(90deg, #2563eb, #7c3aed); }
+
+/* ── Upload Info Chip ── */
+.upload-info-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 0.6rem;
+}
+
+/* ── Patient Snapshot ── */
+.patient-snapshot {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    margin: 0.5rem 0 1rem;
+    line-height: 1.6;
+}
+
+/* ── Back to Top ── */
+.nc-back-to-top {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--accent-gradient);
+    color: #ffffff !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    text-decoration: none !important;
+    box-shadow: 0 8px 20px rgba(37,99,235,0.35);
+    z-index: 999;
+    transition: var(--transition);
+}
+
+.nc-back-to-top:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(37,99,235,0.45);
+}
+
+/* ── Accessibility: visible focus states ── */
+.stButton > button:focus-visible,
+.stDownloadButton > button:focus-visible {
+    outline: 3px solid rgba(37,99,235,0.5) !important;
+    outline-offset: 2px !important;
+}
+
+/* ── Responsive tweaks ── */
+@media (max-width: 640px) {
+    .hero-header h1 { font-size: 2rem !important; }
+    .hero-header .hero-icon { font-size: 2.2rem; }
+    .hero-header .hero-subtitle { font-size: 0.9rem; }
+    .block-container { padding-left: 1rem !important; padding-right: 1rem !important; }
+    .metrics-grid { grid-template-columns: 1fr 1fr !important; }
+    .nc-step .nc-step-label { display: none; }
+    .nc-back-to-top { width: 38px; height: 38px; bottom: 16px; right: 16px; font-size: 1rem; }
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -774,11 +931,13 @@ def severity_html(severity: str) -> str:
 # Hero Header
 # ---------------------------------------------------------------------------
 st.markdown("""
+<div id="nc-top"></div>
 <div class="hero-header">
     <div class="hero-icon">🧠</div>
     <h1>Smart NeuroCare</h1>
     <div class="hero-subtitle">AI-Powered Brain Tumor Detection & Analysis Platform</div>
 </div>
+<a href="#nc-top" class="nc-back-to-top" title="Back to top">↑</a>
 """, unsafe_allow_html=True)
 
 
@@ -805,38 +964,53 @@ else:
 # Sidebar: Patient Profile
 # ---------------------------------------------------------------------------
 st.sidebar.markdown("## 👤 Patient Profile")
-name = st.sidebar.text_input("Full name", "Jane Doe")
-patient_id = st.sidebar.text_input("Patient ID", "P-10293")
-age = st.sidebar.number_input("Age", min_value=0, max_value=120, value=45)
-sex = st.sidebar.selectbox("Sex", ["female", "male", "other"])
-weight_kg = st.sidebar.number_input("Weight (kg)", min_value=1.0, value=70.0)
-height_cm = st.sidebar.number_input("Height (cm)", min_value=30.0, value=165.0)
+st.sidebar.caption("Fill in the sections below, then upload a scan to run analysis.")
 
-st.sidebar.markdown("### 🚬 Habits")
-smoker = st.sidebar.checkbox("Currently smokes")
-cigarettes_per_day = st.sidebar.number_input("Cigarettes/day", min_value=0, value=0) if smoker else 0
-alcohol_use = st.sidebar.selectbox("Alcohol use", ["none", "occasional", "regular", "heavy"])
-physical_activity = st.sidebar.selectbox("Physical activity", ["sedentary", "light", "moderate", "active"], index=2)
+with st.sidebar.expander("🪪 Identity & Vitals", expanded=True):
+    name = st.text_input("Full name", "Jane Doe")
+    patient_id = st.text_input("Patient ID", "P-10293")
+    age = st.number_input("Age", min_value=0, max_value=120, value=45)
+    sex = st.selectbox("Sex", ["female", "male", "other"])
+    weight_kg = st.number_input("Weight (kg)", min_value=1.0, value=70.0)
+    height_cm = st.number_input("Height (cm)", min_value=30.0, value=165.0)
 
-st.sidebar.markdown("### 🏥 Medical History")
-existing_conditions = st.sidebar.multiselect(
-    "Existing conditions",
-    ["diabetes", "hypertension", "heart disease", "asthma", "epilepsy", "none"],
-    default=["none"],
-)
-family_history_cancer = st.sidebar.checkbox("Family history of cancer")
-symptoms = st.sidebar.multiselect(
-    "Current symptoms",
-    ["headaches", "seizures", "vision changes", "balance issues", "nausea", "memory issues", "none"],
-    default=["none"],
-)
+bmi = weight_kg / ((height_cm / 100) ** 2) if height_cm else 0
+st.sidebar.markdown(f"""
+<div class="patient-snapshot">
+    📋 <b>{name}</b> · {patient_id} · {age}y {sex} · BMI {bmi:.1f}
+</div>
+""", unsafe_allow_html=True)
 
-st.sidebar.markdown("### 📍 Location & Insurance")
-budget = st.sidebar.number_input("Max budget (₹)", value=800000, step=50000)
-insurance = st.sidebar.text_input("Insurance provider", "StarHealth")
-lat = st.sidebar.number_input("Latitude", value=12.9716, format="%.4f")
-lon = st.sidebar.number_input("Longitude", value=77.5946, format="%.4f")
-pixel_spacing = st.sidebar.number_input("Pixel spacing (mm)", value=1.0, step=0.1)
+with st.sidebar.expander("🚬 Habits & Lifestyle"):
+    smoker = st.checkbox("Currently smokes")
+    cigarettes_per_day = st.number_input("Cigarettes/day", min_value=0, value=0) if smoker else 0
+    alcohol_use = st.selectbox("Alcohol use", ["none", "occasional", "regular", "heavy"])
+    physical_activity = st.selectbox("Physical activity", ["sedentary", "light", "moderate", "active"], index=2)
+
+with st.sidebar.expander("🏥 Medical History"):
+    existing_conditions = st.multiselect(
+        "Existing conditions",
+        ["diabetes", "hypertension", "heart disease", "asthma", "epilepsy", "none"],
+        default=["none"],
+    )
+    family_history_cancer = st.checkbox("Family history of cancer")
+    symptoms = st.multiselect(
+        "Current symptoms",
+        ["headaches", "seizures", "vision changes", "balance issues", "nausea", "memory issues", "none"],
+        default=["none"],
+    )
+
+with st.sidebar.expander("📍 Location & Insurance"):
+    budget = st.number_input("Max budget (₹)", value=800000, step=50000)
+    insurance = st.text_input("Insurance provider", "StarHealth")
+    lat = st.number_input("Latitude", value=12.9716, format="%.4f")
+    lon = st.number_input("Longitude", value=77.5946, format="%.4f")
+
+with st.sidebar.expander("⚙️ Advanced / Technical Settings"):
+    pixel_spacing = st.number_input(
+        "Pixel spacing (mm)", value=1.0, step=0.1,
+        help="Real-world millimeters per pixel, from the scan's DICOM metadata. Used to convert pixel measurements into clinical mm / mm² units.",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -844,6 +1018,34 @@ pixel_spacing = st.sidebar.number_input("Pixel spacing (mm)", value=1.0, step=0.
 # ---------------------------------------------------------------------------
 st.markdown('<div class="section-header"><span class="section-icon">📤</span> Upload MRI Scan</div>', unsafe_allow_html=True)
 uploaded_file = st.file_uploader("Upload a brain MRI image (PNG / JPEG)", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
+st.caption("Accepted formats: PNG, JPG, JPEG · Axial T1/T2 brain MRI slices work best · Max recommended size 10 MB")
+
+
+def render_stepper(stage: int) -> None:
+    """Purely visual progress indicator. stage: 0=upload, 1=configure/analyze, 2=results reviewed."""
+    labels = ["Upload Scan", "Configure & Analyze", "Review Results"]
+    parts = ['<div class="nc-stepper">']
+    for i, label in enumerate(labels):
+        if i < stage:
+            cls, icon = "done", "✓"
+        elif i == stage:
+            cls, icon = "active", str(i + 1)
+        else:
+            cls, icon = "", str(i + 1)
+        parts.append(
+            f'<div class="nc-step {cls}"><span class="nc-step-num">{icon}</span>'
+            f'<span class="nc-step-label">{label}</span></div>'
+        )
+        if i < len(labels) - 1:
+            parts.append('<div class="nc-step-connector"></div>')
+    parts.append('</div>')
+    st.markdown("".join(parts), unsafe_allow_html=True)
+
+
+nc_stage = 0
+if uploaded_file is not None:
+    nc_stage = 2 if st.session_state.get("nc_analysis_done_for") == uploaded_file.name else 1
+render_stepper(nc_stage)
 
 if uploaded_file is not None:
     raw_image = Image.open(uploaded_file).convert("RGB")
@@ -866,8 +1068,14 @@ if uploaded_file is not None:
         image_placeholder = st.empty()
         caption_text = "Uploaded MRI Scan (Enhanced with Auto-Crop & CLAHE)" if (enable_crop or enable_clahe) else "Uploaded MRI Scan"
         image_placeholder.image(image, caption=caption_text, use_column_width=True)
+        st.markdown(f"""
+        <div style="text-align:center;">
+            <span class="upload-info-chip">📁 {uploaded_file.name} · {image.size[0]}×{image.size[1]}px</span>
+        </div>
+        """, unsafe_allow_html=True)
 
     if st.button("🔬 Run Analysis", use_container_width=True):
+        st.session_state["nc_analysis_done_for"] = uploaded_file.name
         # ----- Detection -----
         with st.spinner("Running tumor detection..."):
             tensor = eval_transforms(image).unsqueeze(0)
@@ -886,6 +1094,9 @@ if uploaded_file is not None:
                     <span class="badge-dot"></span>
                     TUMOR DETECTED — {prob*100:.1f}% confidence
                 </span>
+                <div style="max-width:420px; margin: 0.6rem auto 0;">
+                    <div class="confidence-meter"><div class="confidence-fill danger" style="width:{prob*100:.1f}%;"></div></div>
+                </div>
             </div>
             """, unsafe_allow_html=True)
         else:
@@ -895,6 +1106,9 @@ if uploaded_file is not None:
                     <span class="badge-dot"></span>
                     NO TUMOR DETECTED — {prob*100:.1f}% confidence
                 </span>
+                <div style="max-width:420px; margin: 0.6rem auto 0;">
+                    <div class="confidence-meter"><div class="confidence-fill safe" style="width:{prob*100:.1f}%;"></div></div>
+                </div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -965,6 +1179,13 @@ if uploaded_file is not None:
 
             # ----- Tumor Details Panel (below image) -----
             rano_display = f"{max_diameter_mm:.1f} mm × {perpendicular_diameter_mm:.1f} mm" if (max_diameter_mm and perpendicular_diameter_mm) else f"{max_diameter_mm:.1f} mm" if max_diameter_mm else "N/A"
+            classification_meter_html = ""
+            if classification_confidence:
+                classification_meter_html = (
+                    '<div style="padding: 0 0 0.6rem;"><div class="confidence-meter">'
+                    f'<div class="confidence-fill info" style="width:{classification_confidence*100:.1f}%;"></div>'
+                    "</div></div>"
+                )
             st.markdown(f"""
             <div class="tumor-details-overlay">
                 <div style="text-align:center; margin-bottom:0.5rem; font-weight:700; color: #f87171; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.95rem;">
@@ -978,6 +1199,7 @@ if uploaded_file is not None:
                     <span class="detail-label">Classification Confidence</span>
                     <span class="detail-value">{f'{classification_confidence*100:.1f}%' if classification_confidence else 'N/A'}</span>
                 </div>
+                {classification_meter_html}
                 <div class="detail-row">
                     <span class="detail-label">RANO Bidirectional Dimensions (L × W)</span>
                     <span class="detail-value">{rano_display}</span>
