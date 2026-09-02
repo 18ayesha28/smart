@@ -1,12 +1,12 @@
 """
 Streamlit Web Application — Smart NeuroCare
-AI-Powered Brain Tumor Detection & Comprehensive Patient Analysis Platform
+Enterprise-Grade AI Neuro-Oncology Clinical Decision Support (CDS) Suite
 
-Ultra-Compact Clinical Workstation:
-  - Dense, unified single-screen layout (zero scrolling needed to see results)
-  - Left Column: Compact Scan Preview (max 280px) + Preprocessing + Run CTA
-  - Right Column: Live Executive Diagnostic Findings + Metrics + Tabbed Insights
-  - Balanced typography and tight clinical spacing
+Professional Medical Console:
+  - Unified 2-Column Clinical Workstation (No blank voids, no awkward buttons)
+  - Left: Scan Source Selector (Upload or Dropdown Case) + PACS Slice Viewer + Preprocessing + Run CTA
+  - Right: Case Briefing & Protocol Verification (Pre-Analysis) -> Instant Full Triaging Matrix (Post-Analysis)
+  - Clean Medical Sapphire & Slate Palette with crisp typography
 """
 
 import os
@@ -34,7 +34,7 @@ from image_preprocessing import preprocess_mri
 # Page configuration
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Smart NeuroCare — Clinical Suite",
+    page_title="Smart NeuroCare — Clinical PACS & AI Triage",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -51,7 +51,7 @@ SEGMENTATION_CKPT = "best_segmentation_model.pt"
 using_trained_weights = all(os.path.exists(p) for p in [DETECTION_CKPT, CLASSIFICATION_CKPT, SEGMENTATION_CKPT])
 
 # ---------------------------------------------------------------------------
-# Custom CSS — Ultra-Compact Clinical Sapphire & Slate Design
+# Custom CSS — Enterprise Medical PACS Design
 # ---------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -80,11 +80,11 @@ header[data-testid="stHeader"] { display: none !important; }
 
 /* ── Tight Main Container ── */
 .block-container {
-    padding: 0.75rem 1.25rem 2rem !important;
-    max-width: 1400px !important;
+    padding: 0.6rem 1rem 1.5rem !important;
+    max-width: 1440px !important;
 }
 
-/* ── Slim Header Bar ── */
+/* ── Top Clinical Navigation ── */
 .clinical-navbar {
     display: flex;
     justify-content: space-between;
@@ -102,14 +102,18 @@ header[data-testid="stHeader"] { display: none !important; }
     font-size: 1.05rem;
     font-weight: 800;
     color: #0f172a;
-    margin: 0;
-    line-height: 1.2;
+    letter-spacing: -0.01em;
 }
 
-.clinical-navbar .brand-subtitle {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    margin: 0;
+.clinical-navbar .brand-tag {
+    font-size: 0.72rem;
+    color: #0284c7;
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-left: 0.4rem;
 }
 
 .status-pill {
@@ -125,8 +129,8 @@ header[data-testid="stHeader"] { display: none !important; }
 .status-pill.success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; }
 .status-pill.info { background: #f0f9ff; border: 1px solid #bae6fd; color: #0369a1; }
 
-/* ── Compact Cards ── */
-.clinical-card {
+/* ── Structured Workstation Cards ── */
+.pacs-panel {
     background: #ffffff;
     border: 1px solid var(--border-color);
     border-radius: 8px;
@@ -135,101 +139,101 @@ header[data-testid="stHeader"] { display: none !important; }
     box-shadow: 0 1px 2px rgba(0,0,0,0.02);
 }
 
-.clinical-card-header {
+.pacs-panel-header {
     font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 0.88rem;
+    font-size: 0.85rem;
     font-weight: 700;
     color: #0f172a;
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.45rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 0.35rem;
 }
 
-/* ── Compact Metrics Row ── */
-.metrics-row {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 0.5rem;
-    margin: 0.5rem 0 0.75rem;
-}
-
-.metric-tile {
-    background: #ffffff;
-    border: 1px solid var(--border-color);
+/* ── PACS Viewer Frame ── */
+.pacs-viewport {
+    background: #090d16;
     border-radius: 6px;
-    padding: 0.45rem 0.6rem;
-    border-top: 3px solid #0284c7;
+    border: 1px solid #1e293b;
+    padding: 4px;
+    text-align: center;
+    margin: 0.3rem 0 0.5rem;
 }
 
-.metric-tile.red { border-top-color: #dc2626; }
-.metric-tile.green { border-top-color: #16a34a; }
-.metric-tile.purple { border-top-color: #6366f1; }
-.metric-tile.blue { border-top-color: #0284c7; }
-.metric-tile.amber { border-top-color: #d97706; }
-.metric-tile.teal { border-top-color: #0d9488; }
-
-.metric-tile .tile-label {
-    font-size: 0.65rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    letter-spacing: 0.04em;
-    margin-bottom: 0.15rem;
-}
-
-.metric-tile .tile-value {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 1.05rem;
-    font-weight: 800;
-    color: var(--text-primary);
-    line-height: 1.2;
-}
-
-.metric-tile .tile-sub {
-    font-size: 0.68rem;
-    color: var(--text-secondary);
-    margin-top: 0.1rem;
-}
-
-/* ── Result Alert Banners ── */
-.result-alert {
+/* ── Result Banners ── */
+.result-banner {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0.55rem 0.85rem;
     border-radius: 6px;
-    font-size: 0.85rem;
+    font-size: 0.84rem;
     font-weight: 700;
     margin-bottom: 0.6rem;
 }
 
-.result-alert.detected {
+.result-banner.detected {
     background: #fef2f2;
     border: 1px solid #fecaca;
     color: #dc2626;
 }
 
-.result-alert.clear {
+.result-banner.clear {
     background: #f0fdf4;
     border: 1px solid #bbf7d0;
     color: #15803d;
 }
 
-/* ── Compact Hospital & Lifestyle Cards ── */
-.hospital-card-compact {
+/* ── Metric Matrix Tiles ── */
+.metric-matrix {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.45rem;
+    margin-bottom: 0.65rem;
+}
+
+.matrix-tile {
     background: #ffffff;
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    padding: 0.6rem 0.8rem;
-    margin-bottom: 0.45rem;
+    padding: 0.4rem 0.55rem;
+    border-top: 3px solid #0284c7;
 }
 
-.hospital-card-compact:hover {
-    border-color: #bae6fd;
+.matrix-tile.red { border-top-color: #dc2626; }
+.matrix-tile.green { border-top-color: #16a34a; }
+.matrix-tile.purple { border-top-color: #6366f1; }
+.matrix-tile.blue { border-top-color: #0284c7; }
+.matrix-tile.amber { border-top-color: #d97706; }
+.matrix-tile.teal { border-top-color: #0d9488; }
+
+.matrix-tile .t-label {
+    font-size: 0.63rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+    margin-bottom: 0.1rem;
 }
 
-.lifestyle-card-compact {
+.matrix-tile .t-val {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 0.98rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1.15;
+}
+
+.matrix-tile .t-sub {
+    font-size: 0.66rem;
+    color: var(--text-secondary);
+    margin-top: 0.1rem;
+}
+
+/* ── Hospital Card ── */
+.hosp-tile {
     background: #ffffff;
     border: 1px solid var(--border-color);
     border-radius: 6px;
@@ -237,15 +241,8 @@ header[data-testid="stHeader"] { display: none !important; }
     margin-bottom: 0.4rem;
 }
 
-.lifestyle-card-compact ul {
-    margin: 0;
-    padding-left: 1.1rem;
-}
-
-.lifestyle-card-compact li {
-    font-size: 0.8rem;
-    color: #334155;
-    line-height: 1.45;
+.hosp-tile:hover {
+    border-color: #bae6fd;
 }
 
 /* ── Action Buttons ── */
@@ -254,11 +251,10 @@ header[data-testid="stHeader"] { display: none !important; }
     color: #ffffff !important;
     border: none !important;
     border-radius: 6px !important;
-    padding: 0.5rem 1.2rem !important;
+    padding: 0.45rem 1.1rem !important;
     font-weight: 700 !important;
-    font-size: 0.88rem !important;
+    font-size: 0.85rem !important;
     transition: all 0.15s ease !important;
-    box-shadow: 0 1px 3px rgba(2, 132, 199, 0.25) !important;
 }
 
 .stButton > button:hover {
@@ -271,11 +267,11 @@ header[data-testid="stHeader"] { display: none !important; }
     border: 1px solid #bae6fd !important;
     border-radius: 6px !important;
     font-weight: 600 !important;
-    padding: 0.5rem 1.2rem !important;
-    font-size: 0.85rem !important;
+    padding: 0.45rem 1.1rem !important;
+    font-size: 0.82rem !important;
 }
 
-/* ── Tabs Styling ── */
+/* ── Tabs ── */
 .stTabs [data-baseweb="tab-list"] {
     gap: 4px;
     border-bottom: 1px solid #e2e8f0;
@@ -283,11 +279,11 @@ header[data-testid="stHeader"] { display: none !important; }
 }
 
 .stTabs [data-baseweb="tab"] {
-    height: 32px;
+    height: 30px;
     border-radius: 4px;
     padding: 0 10px;
     font-weight: 600;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
 }
 
 .stTabs [aria-selected="true"] {
@@ -296,9 +292,9 @@ header[data-testid="stHeader"] { display: none !important; }
     border: 1px solid #bae6fd !important;
 }
 
-/* ── File Uploader Compact ── */
-.stFileUploader > div {
-    padding: 0.75rem !important;
+/* ── Selectbox & Inputs ── */
+.stSelectbox > div > div, .stTextInput > div > div, .stNumberInput > div > div > input {
+    font-size: 0.82rem !important;
     border-radius: 6px !important;
 }
 </style>
@@ -361,9 +357,9 @@ if not os.path.exists(SAMPLE_DIR):
     generate_sample_mris(SAMPLE_DIR)
 
 # ---------------------------------------------------------------------------
-# Sidebar: Compact Patient Profile
+# Sidebar: Compact Patient Case Record
 # ---------------------------------------------------------------------------
-st.sidebar.markdown("### 👤 Patient Profile")
+st.sidebar.markdown("### 🗂️ Patient Case Record")
 
 col_p1, col_p2, col_p3 = st.sidebar.columns(3)
 if col_p1.button("👩 45F", help="Jane Doe (45F, Frontal)"):
@@ -387,9 +383,9 @@ if col_p3.button("👦 28M", help="Alex M. (28M, Clear)"):
     st.session_state["p_sex"] = "male"
     st.session_state["p_symptoms"] = ["none"]
 
-with st.sidebar.expander("🪪 Identity & Vitals", expanded=True):
-    name = st.text_input("Name", st.session_state.get("p_name", "Jane Doe"))
-    patient_id = st.text_input("ID", st.session_state.get("p_id", "P-10293"))
+with st.sidebar.expander("🪪 Demographics & Vitals", expanded=True):
+    name = st.text_input("Full Name", st.session_state.get("p_name", "Jane Doe"))
+    patient_id = st.text_input("Patient ID", st.session_state.get("p_id", "P-10293"))
     age = st.number_input("Age", min_value=0, max_value=120, value=st.session_state.get("p_age", 45))
     sex = st.selectbox("Sex", ["female", "male", "other"], index=0 if st.session_state.get("p_sex") == "female" else 1)
     weight_kg = st.number_input("Weight (kg)", min_value=1.0, value=70.0)
@@ -398,42 +394,40 @@ with st.sidebar.expander("🪪 Identity & Vitals", expanded=True):
 bmi = weight_kg / ((height_cm / 100) ** 2) if height_cm else 0
 st.sidebar.caption(f"📋 {name} · {patient_id} · {age}y {sex} · BMI {bmi:.1f}")
 
-with st.sidebar.expander("🏥 Symptoms & Conditions"):
+with st.sidebar.expander("🏥 Clinical History & Symptoms"):
     existing_conditions = st.multiselect(
-        "Conditions",
+        "Comorbidities",
         ["diabetes", "hypertension", "heart disease", "asthma", "epilepsy", "none"],
         default=["none"],
     )
-    family_history_cancer = st.checkbox("Family history of cancer")
+    family_history_cancer = st.checkbox("Family history of oncology")
     default_syms = st.session_state.get("p_symptoms", ["headaches"])
     symptoms = st.multiselect(
-        "Current symptoms",
+        "Reported Symptoms",
         ["headaches", "seizures", "vision changes", "balance issues", "nausea", "memory issues", "none"],
         default=[s for s in default_syms if s in ["headaches", "seizures", "vision changes", "balance issues", "nausea", "memory issues", "none"]] or ["none"],
     )
 
 with st.sidebar.expander("📍 Location & Insurance"):
-    budget = st.number_input("Max budget (₹)", value=800000, step=50000)
-    insurance = st.text_input("Insurance", "StarHealth")
+    budget = st.number_input("Max Budget (₹)", value=800000, step=50000)
+    insurance = st.text_input("Insurance Provider", "StarHealth")
     lat = st.number_input("Latitude", value=12.9716, format="%.4f")
     lon = st.number_input("Longitude", value=77.5946, format="%.4f")
-    pixel_spacing = st.number_input("Pixel spacing (mm)", value=1.0, step=0.1)
+    pixel_spacing = st.number_input("DICOM Pixel Spacing (mm)", value=1.0, step=0.1)
 
 
 # ---------------------------------------------------------------------------
-# Slim Top Clinical Header Bar
+# Slim Top Clinical Header
 # ---------------------------------------------------------------------------
 st.markdown("""
 <div class="clinical-navbar">
-    <div style="display:flex; align-items:center; gap:0.5rem;">
-        <span style="font-size:1.3rem;">🧠</span>
-        <div>
-            <span class="brand-title">Smart NeuroCare™</span>
-            <span style="font-size:0.75rem; color:#64748b; margin-left:0.4rem;">AI Neuro-Oncology Triage Suite</span>
-        </div>
+    <div style="display:flex; align-items:center; gap:0.4rem;">
+        <span style="font-size:1.2rem;">🧠</span>
+        <span class="brand-title">Smart NeuroCare™</span>
+        <span class="brand-tag">Clinical Decision Support v2.4</span>
     </div>
     <div style="display:flex; align-items:center; gap:0.4rem;">
-        <span class="status-pill success">🟢 3 AI Models Loaded</span>
+        <span class="status-pill success">🟢 ResNet + UNet Active</span>
         <span class="status-pill info">📐 DICOM Calibrated</span>
     </div>
 </div>
@@ -441,128 +435,153 @@ st.markdown("""
 
 
 # ---------------------------------------------------------------------------
-# Compact Dual-Path Scan Intake
+# Main 2-Column Workstation (Zero-Scroll Clinical Console)
 # ---------------------------------------------------------------------------
-intake_col1, intake_col2 = st.columns([1, 1])
+col_workstation_left, col_workstation_right = st.columns([3.8, 6.2])
 
-active_image = None
-active_image_name = None
-
-with intake_col1:
-    uploaded_file = st.file_uploader("Upload MRI Slice (PNG / JPG / JPEG)", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
-    if uploaded_file is not None:
-        active_image = Image.open(uploaded_file).convert("RGB")
-        active_image_name = uploaded_file.name
-
-with intake_col2:
-    st.markdown("<p style='font-size:0.78rem; font-weight:600; color:#475569; margin:0 0 0.25rem;'>Or click a verified clinical case to test instantly:</p>", unsafe_allow_html=True)
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        if st.button("🟡 Case A\nMeningioma", use_container_width=True):
-            p = os.path.join(SAMPLE_DIR, "meningioma_sample.png")
-            if os.path.exists(p):
-                active_image = Image.open(p).convert("RGB")
-                active_image_name = "Case_A_Meningioma.png"
-                st.session_state["sample_loaded"] = active_image_name
-    with c2:
-        if st.button("🔴 Case B\nGlioma", use_container_width=True):
-            p = os.path.join(SAMPLE_DIR, "glioma_sample.png")
-            if os.path.exists(p):
-                active_image = Image.open(p).convert("RGB")
-                active_image_name = "Case_B_Glioma.png"
-                st.session_state["sample_loaded"] = active_image_name
-    with c3:
-        if st.button("🟣 Case C\nPituitary", use_container_width=True):
-            p = os.path.join(SAMPLE_DIR, "pituitary_sample.png")
-            if os.path.exists(p):
-                active_image = Image.open(p).convert("RGB")
-                active_image_name = "Case_C_Pituitary.png"
-                st.session_state["sample_loaded"] = active_image_name
-    with c4:
-        if st.button("🟢 Case D\nNormal", use_container_width=True):
-            p = os.path.join(SAMPLE_DIR, "healthy_normal_sample.png")
-            if os.path.exists(p):
-                active_image = Image.open(p).convert("RGB")
-                active_image_name = "Case_D_Normal.png"
-                st.session_state["sample_loaded"] = active_image_name
-
-# Retain sample scan in session
-if active_image is None and st.session_state.get("sample_loaded"):
-    s_name = st.session_state["sample_loaded"]
-    mapping = {
-        "Case_A_Meningioma.png": "meningioma_sample.png",
-        "Case_B_Glioma.png": "glioma_sample.png",
-        "Case_C_Pituitary.png": "pituitary_sample.png",
-        "Case_D_Normal.png": "healthy_normal_sample.png",
-    }
-    target = os.path.join(SAMPLE_DIR, mapping.get(s_name, "meningioma_sample.png"))
-    if os.path.exists(target):
-        active_image = Image.open(target).convert("RGB")
-        active_image_name = s_name
-
-
-# ---------------------------------------------------------------------------
-# Integrated Workstation (Side-by-Side: Scan on Left, Live Results on Right)
-# ---------------------------------------------------------------------------
-if active_image is None:
+with col_workstation_left:
     st.markdown("""
-    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:1.25rem; text-align:center; margin-top:0.5rem;">
-        <p style="font-size:0.95rem; font-weight:700; color:#0f172a; margin:0 0 0.25rem;">👈 Upload a Brain MRI Slice or Click a Demo Case Above to Begin</p>
-        <p style="font-size:0.8rem; color:#64748b; margin:0;">Supports Axial T1/T2 & FLAIR brain slices · AI automated RANO measurements, subtype classification, and hospital triage</p>
-    </div>
+    <div class="pacs-panel">
+        <div class="pacs-panel-header">
+            <span>📥 PACS Scan Source</span>
+            <span style="font-size:0.72rem; color:#64748b;">Axial T1/T2 & FLAIR</span>
+        </div>
     """, unsafe_allow_html=True)
 
-else:
-    # 2-Column Clinical Layout
-    col_left_scan, col_right_results = st.columns([3, 7])
+    scan_mode = st.radio(
+        "Source",
+        ["🧪 Verified Demo Cases", "📤 Upload Custom DICOM/MRI"],
+        horizontal=True,
+        label_visibility="collapsed",
+    )
 
-    with col_left_scan:
+    active_image = None
+    active_image_name = None
+
+    if scan_mode == "🧪 Verified Demo Cases":
+        case_choice = st.selectbox(
+            "Select Clinical Case",
+            [
+                "Case 1: Frontal Meningioma (Axial T1+C)",
+                "Case 2: Temporal High-Grade Glioma (Axial T2)",
+                "Case 3: Sellar Pituitary Macroadenoma (Coronal T1)",
+                "Case 4: Healthy Screening (Normal Brain)",
+            ],
+            label_visibility="collapsed",
+        )
+        case_map = {
+            "Case 1: Frontal Meningioma (Axial T1+C)": ("meningioma_sample.png", "Case_1_Meningioma.png"),
+            "Case 2: Temporal High-Grade Glioma (Axial T2)": ("glioma_sample.png", "Case_2_Glioma.png"),
+            "Case 3: Sellar Pituitary Macroadenoma (Coronal T1)": ("pituitary_sample.png", "Case_3_Pituitary.png"),
+            "Case 4: Healthy Screening (Normal Brain)": ("healthy_normal_sample.png", "Case_4_Normal.png"),
+        }
+        f_name, label_name = case_map[case_choice]
+        target_path = os.path.join(SAMPLE_DIR, f_name)
+        if os.path.exists(target_path):
+            active_image = Image.open(target_path).convert("RGB")
+            active_image_name = label_name
+    else:
+        uploaded_file = st.file_uploader(
+            "Upload MRI Image",
+            type=["png", "jpg", "jpeg"],
+            label_visibility="collapsed",
+        )
+        if uploaded_file is not None:
+            active_image = Image.open(uploaded_file).convert("RGB")
+            active_image_name = uploaded_file.name
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # Viewer + Preprocessing + CTA
+    if active_image is not None:
         st.markdown(f"""
-        <div class="clinical-card" style="padding:0.6rem 0.8rem;">
-            <div class="clinical-card-header" style="margin-bottom:0.25rem;">
-                <span style="font-size:0.82rem;">🖼️ Active MRI Slice</span>
+        <div class="pacs-panel">
+            <div class="pacs-panel-header">
+                <span>🖼️ DICOM Slice Viewer</span>
                 <span style="font-size:0.7rem; color:#0284c7; font-family:'JetBrains Mono';">{active_image_name}</span>
             </div>
-        </div>
         """, unsafe_allow_html=True)
 
-        # Preprocessing toggles
-        col_c1, col_c2 = st.columns(2)
-        with col_c1:
-            enable_crop = st.checkbox("🧠 Auto-Crop", value=True, help="Removes uninformative black margins")
-        with col_c2:
+        col_pr1, col_pr2 = st.columns(2)
+        with col_pr1:
+            enable_crop = st.checkbox("🧠 Auto-Crop", value=True, help="Removes empty background margins")
+        with col_pr2:
             enable_clahe = st.checkbox("✨ CLAHE", value=True, help="Equalizes MRI contrast variance")
 
         processed_image = preprocess_mri(active_image, auto_crop=enable_crop, enhance_contrast=enable_clahe)
 
-        # Render compact image (constrained width so it never overflows vertically)
-        image_slot = st.empty()
-        image_slot.image(processed_image, width=280)
+        # PACS Viewport Box
+        st.markdown('<div class="pacs-viewport">', unsafe_allow_html=True)
+        img_slot = st.empty()
+        img_slot.image(processed_image, width=280)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        # Primary Run CTA right under image
-        run_btn = st.button("🔬 Run Diagnostic Analysis", use_container_width=True)
+        run_cta = st.button("🔬 Execute AI Triage & Sizing", use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    with col_right_results:
-        # Check if analysis should run or has run
-        if run_btn:
-            st.session_state["analyzed_image_name"] = active_image_name
+    else:
+        st.info("Select or upload a scan above to activate viewer.")
+        run_cta = False
 
-        has_analysis = st.session_state.get("analyzed_image_name") == active_image_name
 
-        if not has_analysis:
-            st.markdown(f"""
-            <div class="clinical-card" style="min-height:360px; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center;">
-                <span style="font-size:2rem; margin-bottom:0.4rem;">🔬</span>
-                <p style="font-size:0.95rem; font-weight:700; color:#0f172a; margin:0 0 0.25rem;">Ready for Diagnostic Analysis</p>
-                <p style="font-size:0.8rem; color:#64748b; max-width:400px; margin:0 0 1rem;">
-                    Patient: <b>{name}</b> ({age}y, {sex.title()}) · ID: <b>{patient_id}</b><br>
-                    Click <b>"Run Diagnostic Analysis"</b> on the left to extract lesion coordinates, RANO measurements, and triage recommendations.
-                </p>
+with col_workstation_right:
+    # Check if analysis should be displayed
+    if run_cta:
+        st.session_state["active_analyzed_scan"] = active_image_name
+
+    has_analysis = active_image is not None and st.session_state.get("active_analyzed_scan") == active_image_name
+
+    if not has_analysis:
+        # Pre-Analysis Protocol Briefing & Capability Matrix (Clean, no empty voids!)
+        st.markdown(f"""
+        <div class="pacs-panel">
+            <div class="pacs-panel-header">
+                <span>📋 Clinical Protocol & Pre-Analysis Verification</span>
+                <span class="status-pill info">Patient: {patient_id}</span>
             </div>
-            """, unsafe_allow_html=True)
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; font-size:0.8rem; color:#334155; margin-bottom:0.75rem;">
+                <div><b>Patient Name:</b> {name} ({age}y, {sex.title()})</div>
+                <div><b>Calculated BMI:</b> {bmi:.1f} ({'Normal' if 18.5<=bmi<25 else 'Elevated'})</div>
+                <div><b>Insurance Provider:</b> {insurance}</div>
+                <div><b>Budget Cap:</b> ₹{budget:,.0f}</div>
+                <div style="grid-column:1/3;"><b>Reported Symptoms:</b> {', '.join(symptoms) if symptoms else 'None'}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        else:
-            # 1. Detection
+        st.markdown("""
+        <div class="pacs-panel">
+            <div class="pacs-panel-header">
+                <span>⚡ Automated Triaging Capabilities</span>
+                <span style="font-size:0.72rem; color:#64748b;">Processing Latency: ~0.6s</span>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; font-size:0.78rem;">
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:0.6rem;">
+                    <b>1. Binary Detection</b><br>
+                    <span style="color:#64748b;">High-sensitivity ResNet model classifies presence of mass effect or neoplastic tissue.</span>
+                </div>
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:0.6rem;">
+                    <b>2. Differential Typing</b><br>
+                    <span style="color:#64748b;">4-Class histopathology classifier predicts Glioma, Meningioma, Pituitary, or Normal.</span>
+                </div>
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:0.6rem;">
+                    <b>3. RANO 2D Measurements</b><br>
+                    <span style="color:#64748b;">Rotated bounding algorithm measures major × perpendicular minor diameters in mm.</span>
+                </div>
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:0.6rem;">
+                    <b>4. Geospatial Routing</b><br>
+                    <span style="color:#64748b;">Weighted hospital matching evaluating neurosurgical tier, distance, and insurance.</span>
+                </div>
+            </div>
+            <p style="font-size:0.8rem; font-weight:600; color:#0284c7; text-align:center; margin:0.85rem 0 0.2rem;">
+                👈 Click "Execute AI Triage & Sizing" to generate comprehensive findings.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    else:
+        # Execute Live Deep Analysis
+        with st.spinner("Processing deep convolutional inference..."):
             eval_transforms = transforms.Compose([
                 transforms.Resize((224, 224)),
                 transforms.ToTensor(),
@@ -585,7 +604,6 @@ else:
             circle_info = None
 
             if tumor_detected:
-                # 2. Classification
                 with torch.no_grad():
                     class_logits = classification_model(tensor)
                     class_probs = torch.softmax(class_logits, dim=1)[0]
@@ -593,7 +611,6 @@ else:
                     tumor_type = CLASSIFICATION_CLASSES[pred_idx]
                     classification_confidence = class_probs[pred_idx].item()
 
-                # 3. Segmentation
                 gray = processed_image.convert("L").resize((256, 256))
                 seg_input = torch.tensor(np.array(gray), dtype=torch.float32).unsqueeze(0).unsqueeze(0) / 255.0
                 with torch.no_grad():
@@ -610,7 +627,7 @@ else:
 
                 if circle_info:
                     annotated = draw_tumor_overlay(processed_image, circle_info)
-                    image_slot.image(annotated, width=280)
+                    img_slot.image(annotated, width=280)
                     overlay_path = "demo_overlay.png"
                     annotated.save(overlay_path)
 
@@ -655,141 +672,141 @@ else:
                 longitude=float(lon),
             )
 
-            # Executive Summary Top Banner (IMMEDIATELY VISIBLE!)
-            if tumor_detected:
-                st.markdown(f"""
-                <div class="result-alert detected">
-                    <span>🔴 TUMOR DETECTED — {prob*100:.1f}% Confidence · Subtype: <b style="text-transform:capitalize;">{tumor_type}</b> ({classification_confidence*100:.1f}%)</span>
-                    <span style="font-size:0.75rem; text-transform:uppercase; background:#b91c1c; color:#fff; padding:0.15rem 0.5rem; border-radius:4px;">Severity: {severity}</span>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                <div class="result-alert clear">
-                    <span>🟢 NO TUMOR DETECTED — {prob*100:.1f}% Confidence</span>
-                    <span style="font-size:0.75rem; text-transform:uppercase; background:#15803d; color:#fff; padding:0.15rem 0.5rem; border-radius:4px;">Clear Screening</span>
-                </div>
-                """, unsafe_allow_html=True)
-
-            # Compact 5-Metric Tiles
-            rano_str = f"{max_diameter_mm:.1f}×{perpendicular_diameter_mm:.1f} mm" if (max_diameter_mm and perpendicular_diameter_mm) else "N/A"
-            area_str = f"{area_mm2:.1f} mm²" if area_mm2 else "0.0 mm²"
-
+        # 1. Executive Result Alert
+        if tumor_detected:
             st.markdown(f"""
-            <div class="metrics-row">
-                <div class="metric-tile {'red' if tumor_detected else 'green'}">
-                    <div class="tile-label">Detection</div>
-                    <div class="tile-value">{'Positive' if tumor_detected else 'Negative'}</div>
-                    <div class="tile-sub">{prob*100:.1f}% conf</div>
-                </div>
-                <div class="metric-tile purple">
-                    <div class="tile-label">Subtype</div>
-                    <div class="tile-value" style="font-size:0.95rem; text-transform:capitalize;">{tumor_type if tumor_type else 'Normal'}</div>
-                    <div class="tile-sub">{f'{classification_confidence*100:.0f}% match' if classification_confidence else 'Non-neoplastic'}</div>
-                </div>
-                <div class="metric-tile blue">
-                    <div class="tile-label">RANO 2D (L×W)</div>
-                    <div class="tile-value" style="font-size:0.9rem;">{rano_str}</div>
-                    <div class="tile-sub">Millimeters</div>
-                </div>
-                <div class="metric-tile amber">
-                    <div class="tile-label">Lesion Area</div>
-                    <div class="tile-value" style="font-size:0.9rem;">{area_str}</div>
-                    <div class="tile-sub">Calibrated</div>
-                </div>
-                <div class="metric-tile teal">
-                    <div class="tile-label">Severity</div>
-                    <div class="tile-value" style="font-size:0.95rem; text-transform:uppercase;">{severity if severity else 'LOW'}</div>
-                    <div class="tile-sub">WHO Graded</div>
-                </div>
+            <div class="result-banner detected">
+                <span>🔴 INTRACRANIAL LESION DETECTED — {prob*100:.1f}% Conf · Subtype: <b style="text-transform:capitalize;">{tumor_type}</b> ({classification_confidence*100:.1f}%)</span>
+                <span style="font-size:0.72rem; text-transform:uppercase; background:#b91c1c; color:#fff; padding:0.15rem 0.45rem; border-radius:4px;">Severity: {severity}</span>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div class="result-banner clear">
+                <span>🟢 NO INTRACRANIAL LESION DETECTED — {prob*100:.1f}% Conf</span>
+                <span style="font-size:0.72rem; text-transform:uppercase; background:#15803d; color:#fff; padding:0.15rem 0.45rem; border-radius:4px;">Clear Screening</span>
             </div>
             """, unsafe_allow_html=True)
 
-            # Compact Results Tabs
-            rt1, rt2, rt3, rt4 = st.tabs([
-                "📊 Detailed Measurements",
-                "🏥 Hospital Triage",
-                "💚 Lifestyle Guidance",
-                "📄 Download Report"
-            ])
+        # 2. 5-Tile Metric Matrix
+        rano_str = f"{max_diameter_mm:.1f}×{perpendicular_diameter_mm:.1f} mm" if (max_diameter_mm and perpendicular_diameter_mm) else "N/A"
+        area_str = f"{area_mm2:.1f} mm²" if area_mm2 else "0.0 mm²"
 
-            with rt1:
+        st.markdown(f"""
+        <div class="metric-matrix">
+            <div class="matrix-tile {'red' if tumor_detected else 'green'}">
+                <div class="t-label">Status</div>
+                <div class="t-val">{'Positive' if tumor_detected else 'Clear'}</div>
+                <div class="t-sub">{prob*100:.1f}% conf</div>
+            </div>
+            <div class="matrix-tile purple">
+                <div class="t-label">Histopathology</div>
+                <div class="t-val" style="font-size:0.88rem; text-transform:capitalize;">{tumor_type if tumor_type else 'Normal'}</div>
+                <div class="t-sub">{f'{classification_confidence*100:.0f}% match' if classification_confidence else 'Non-neoplastic'}</div>
+            </div>
+            <div class="matrix-tile blue">
+                <div class="t-label">RANO 2D (L×W)</div>
+                <div class="t-val" style="font-size:0.85rem;">{rano_str}</div>
+                <div class="t-sub">Millimeters</div>
+            </div>
+            <div class="matrix-tile amber">
+                <div class="t-label">Lesion Area</div>
+                <div class="t-val" style="font-size:0.85rem;">{area_str}</div>
+                <div class="t-sub">Physical Scale</div>
+            </div>
+            <div class="matrix-tile teal">
+                <div class="t-label">WHO Grade</div>
+                <div class="t-val" style="font-size:0.88rem; text-transform:uppercase;">{severity if severity else 'LOW'}</div>
+                <div class="t-sub">Severity Tier</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # 3. Deep Clinical Insights Tabs
+        res_t1, res_t2, res_t3, res_t4 = st.tabs([
+            "📊 Quantitative Sizing & Differential",
+            "🏥 Neurosurgical Routing",
+            "💚 Clinical Guidance",
+            "📄 Export Diagnostic PDF"
+        ])
+
+        with res_t1:
+            st.markdown(f"""
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:0.55rem 0.75rem; font-size:0.8rem; color:#334155;">
+                <b>RANO Major Axis ($L$):</b> <code>{f'{max_diameter_mm:.2f} mm' if max_diameter_mm else 'N/A'}</code> &nbsp;|&nbsp;
+                <b>Minor Axis ($W$):</b> <code>{f'{perpendicular_diameter_mm:.2f} mm' if perpendicular_diameter_mm else 'N/A'}</code> &nbsp;|&nbsp;
+                <b>Product ($L \\times W$):</b> <code>{f'{product_bidirectional_mm2:.2f} mm²' if product_bidirectional_mm2 else 'N/A'}</code><br>
+                <b>Lesion Cross-Section:</b> <code>{f'{area_mm2:.2f} mm²' if area_mm2 else '0.00 mm²'}</code> &nbsp;|&nbsp;
+                <b>DICOM Calibration:</b> <code>{pixel_spacing:.2f} mm/px</code>
+            </div>
+            """, unsafe_allow_html=True)
+
+            if tumor_detected and classification_confidence:
+                st.markdown("<p style='font-size:0.76rem; font-weight:700; color:#0f172a; margin:0.4rem 0 0.2rem;'>Differential Subtype Probabilities:</p>", unsafe_allow_html=True)
+                for idx, c_name in enumerate(CLASSIFICATION_CLASSES):
+                    c_prob = class_probs[idx].item() * 100
+                    st.markdown(f"""
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.74rem; margin-bottom:0.15rem;">
+                        <span style="text-transform:capitalize; width:85px;">{c_name}</span>
+                        <div style="flex:1; height:5px; background:#e2e8f0; border-radius:3px; margin:0 6px; overflow:hidden;">
+                            <div style="height:100%; width:{c_prob}%; background:#0284c7;"></div>
+                        </div>
+                        <span style="width:36px; text-align:right; font-weight:600;">{c_prob:.1f}%</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+        with res_t2:
+            matched_hospitals = recommend_hospitals(patient, analysis, default_hospitals(), top_n=3)
+            for h in matched_hospitals:
+                h_name = h.get("name", "Neurosurgical Centre")
+                h_city = h.get("city", "")
+                h_score = h.get("match_score", 0.0)
+                h_dist = h.get("distance_km", 0.0)
+                reasons = h.get("match_reasons", {})
                 st.markdown(f"""
-                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:0.6rem 0.8rem; font-size:0.82rem; color:#334155;">
-                    <b>RANO Major Axis ($L$):</b> <code>{f'{max_diameter_mm:.2f} mm' if max_diameter_mm else 'N/A'}</code> &nbsp;|&nbsp;
-                    <b>Minor Axis ($W$):</b> <code>{f'{perpendicular_diameter_mm:.2f} mm' if perpendicular_diameter_mm else 'N/A'}</code> &nbsp;|&nbsp;
-                    <b>Product ($L \\times W$):</b> <code>{f'{product_bidirectional_mm2:.2f} mm²' if product_bidirectional_mm2 else 'N/A'}</code><br>
-                    <b>Cross-Sectional Area:</b> <code>{f'{area_mm2:.2f} mm²' if area_mm2 else '0.00 mm²'}</code> &nbsp;|&nbsp;
-                    <b>DICOM Scale:</b> <code>{pixel_spacing:.2f} mm/px</code>
+                <div class="hosp-tile">
+                    <div style="display:flex; justify-content:space-between; font-weight:700; font-size:0.82rem; color:#0f172a;">
+                        <span>🏥 {h_name} ({h_city})</span>
+                        <span style="color:#0284c7;">{h_score*100:.0f}% Match</span>
+                    </div>
+                    <div style="font-size:0.72rem; color:#64748b; margin-top:0.15rem;">
+                        📍 {h_dist} km · ⭐ Quality: {reasons.get('hospital_quality', 'N/A')} · 💰 Cost: {reasons.get('cost_fit', 'N/A')} · 🛡️ Insurance: {reasons.get('insurance_fit', 'N/A')}
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
 
-                if tumor_detected and classification_confidence:
-                    st.markdown("<p style='font-size:0.78rem; font-weight:700; color:#0f172a; margin:0.5rem 0 0.25rem;'>Differential Subtype Probabilities:</p>", unsafe_allow_html=True)
-                    for idx, c_name in enumerate(CLASSIFICATION_CLASSES):
-                        c_prob = class_probs[idx].item() * 100
-                        st.markdown(f"""
-                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; margin-bottom:0.2rem;">
-                            <span style="text-transform:capitalize; width:90px;">{c_name}</span>
-                            <div style="flex:1; height:6px; background:#e2e8f0; border-radius:4px; margin:0 8px; overflow:hidden;">
-                                <div style="height:100%; width:{c_prob}%; background:#0284c7;"></div>
-                            </div>
-                            <span style="width:40px; text-align:right; font-weight:600;">{c_prob:.1f}%</span>
-                        </div>
-                        """, unsafe_allow_html=True)
+        with res_t3:
+            lifestyle = generate_lifestyle_recommendations(patient, analysis)
+            for category, items in list(lifestyle.items())[:3]:
+                if not items: continue
+                title = category.replace("_", " ").title()
+                items_html = "".join(f"<li>{item}</li>" for item in items[:2])
+                st.markdown(f"""
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:0.45rem 0.65rem; margin-bottom:0.35rem;">
+                    <div style="font-weight:700; font-size:0.78rem; color:#0f172a; margin-bottom:0.15rem;">📌 {title}</div>
+                    <ul style="margin:0; padding-left:1.1rem; font-size:0.78rem; color:#334155;">{items_html}</ul>
+                </div>
+                """, unsafe_allow_html=True)
 
-            with rt2:
-                matched_hospitals = recommend_hospitals(patient, analysis, default_hospitals(), top_n=3)
-                for h in matched_hospitals:
-                    h_name = h.get("name", "Neurosurgical Centre")
-                    h_city = h.get("city", "")
-                    h_score = h.get("match_score", 0.0)
-                    h_dist = h.get("distance_km", 0.0)
-                    reasons = h.get("match_reasons", {})
-                    st.markdown(f"""
-                    <div class="hospital-card-compact">
-                        <div style="display:flex; justify-content:space-between; font-weight:700; font-size:0.85rem; color:#0f172a;">
-                            <span>🏥 {h_name} ({h_city})</span>
-                            <span style="color:#0284c7;">{h_score*100:.0f}% Match</span>
-                        </div>
-                        <div style="font-size:0.75rem; color:#64748b; margin-top:0.2rem;">
-                            📍 {h_dist} km · ⭐ Quality: {reasons.get('hospital_quality', 'N/A')} · 💰 Cost: {reasons.get('cost_fit', 'N/A')} · 🛡️ Insurance: {reasons.get('insurance_fit', 'N/A')}
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+        with res_t4:
+            report_path = "generated_report.pdf"
+            generate_patient_report(patient, analysis, matched_hospitals if 'matched_hospitals' in locals() else [], report_path)
+            with open(report_path, "rb") as f:
+                pdf_bytes = f.read()
 
-            with rt3:
-                lifestyle = generate_lifestyle_recommendations(patient, analysis)
-                for category, items in list(lifestyle.items())[:3]:
-                    if not items: continue
-                    title = category.replace("_", " ").title()
-                    items_html = "".join(f"<li>{item}</li>" for item in items[:2])
-                    st.markdown(f"""
-                    <div class="lifestyle-card-compact">
-                        <div style="font-weight:700; font-size:0.8rem; color:#0f172a; margin-bottom:0.2rem;">📌 {title}</div>
-                        <ul>{items_html}</ul>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            with rt4:
-                report_path = "generated_report.pdf"
-                generate_patient_report(patient, analysis, matched_hospitals if 'matched_hospitals' in locals() else [], report_path)
-                with open(report_path, "rb") as f:
-                    pdf_bytes = f.read()
-
-                st.download_button(
-                    label="📥 Download Clinical PDF Report",
-                    data=pdf_bytes,
-                    file_name=f"Smart_NeuroCare_Report_{patient_id}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True,
-                )
+            st.download_button(
+                label="📥 Download Clinical PDF Diagnostic Report",
+                data=pdf_bytes,
+                file_name=f"Smart_NeuroCare_Report_{patient_id}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
 
 # ---------------------------------------------------------------------------
 # Footer Disclaimer
 # ---------------------------------------------------------------------------
 st.markdown("""
-<div style="text-align:center; padding:0.75rem 0; margin-top:1.5rem; color:#94a3b8; font-size:0.72rem; border-top:1px solid #e2e8f0;">
+<div style="text-align:center; padding:0.6rem 0; margin-top:1rem; color:#94a3b8; font-size:0.7rem; border-top:1px solid #e2e8f0;">
     ⚖️ <b>Clinical Decision Support Disclaimer:</b> Smart NeuroCare is an investigational AI-assisted triaging tool. All findings require radiologist verification.
 </div>
 """, unsafe_allow_html=True)
