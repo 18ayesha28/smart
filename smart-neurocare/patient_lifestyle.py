@@ -81,6 +81,8 @@ class TumorAnalysisResult:
     tumor_area_mm2: Optional[float] = None
     tumor_volume_mm3: Optional[float] = None
     max_diameter_mm: Optional[float] = None
+    perpendicular_diameter_mm: Optional[float] = None
+    product_bidirectional_mm2: Optional[float] = None
     severity_score: Optional[str] = None       # low, moderate, high, critical
     segmentation_overlay_path: Optional[str] = None
     model_version: str = "unspecified"
@@ -124,60 +126,46 @@ def generate_lifestyle_recommendations(patient: PatientDetails, analysis: TumorA
     # --- Exercise ---
     if patient.physical_activity == "sedentary":
         recs["exercise"].append(
-            "Current activity level is sedentary. Light, physician-approved activity "
-            "(e.g., short daily walks) can help maintain strength for treatment and recovery — "
-            "start gradually and stop if symptoms like dizziness or headache worsen."
+            "Current activity is sedentary. Low-impact daily walking (15–20 min) is safe and "
+            "promotes circulation, mood, and sleep — cleared by your physician first."
         )
     else:
         recs["exercise"].append(
-            "Maintain current activity level as tolerated, adjusted around treatment/surgery "
-            "timelines and any physician-imposed restrictions (e.g., contact sports if "
-            "intracranial pressure is a concern)."
-        )
-    if analysis.severity_score in ("high", "critical"):
-        recs["exercise"].append(
-            "Given the AI-assigned severity level, avoid high-exertion or high-impact activity "
-            "until cleared by a neurologist/neurosurgeon."
+            "Maintain moderate physical activity (walking, light swimming, stretching), avoiding "
+            "heavy straining, contact sports, or activities with head-trauma risk."
         )
 
-    # --- Habits: smoking / alcohol ---
+    # --- Habits ---
     if patient.smoker:
         recs["habits"].append(
-            f"Currently smoking (~{patient.cigarettes_per_day}/day). Smoking cessation is "
-            "strongly recommended — it impairs wound healing after any brain surgery and is "
-            "associated with worse treatment outcomes generally. Ask your care team about "
-            "cessation support programs."
+            f"Active smoking ({patient.cigarettes_per_day} cig/day). Smoking cessation "
+            "substantially improves tissue oxygenation, lowers surgical complication rates, and "
+            "improves response to radiation therapy. Consult your doctor for cessation support."
         )
     if patient.alcohol_use in ("regular", "heavy"):
         recs["habits"].append(
-            f"Alcohol use reported as '{patient.alcohol_use}'. Reducing intake is advisable, "
-            "particularly if chemotherapy is part of the treatment plan, since alcohol can "
-            "interact with many chemotherapy and anti-seizure medications."
+            f"Alcohol intake ({patient.alcohol_use}). Alcohol may interact with neuro-oncology "
+            "medications (including anti-epileptics like levetiracetam) and worsen cerebral edema. "
+            "Minimizing or eliminating alcohol is strongly advised."
         )
-    recs["habits"].append(
-        "Prioritize sleep (7–9 hours) and stress management (e.g., counseling, support groups) "
-        "— both affect recovery capacity and quality of life during treatment."
-    )
 
-    # --- Monitoring / follow-up ---
-    recs["monitoring"].append(
-        "Keep a symptom diary (headache frequency/severity, vision changes, balance issues, "
-        "seizures) to share at follow-up appointments — this helps track whether the tumor "
-        "or treatment side effects are changing over time."
-    )
-    if patient.family_history_cancer:
+    # --- Monitoring & symptoms ---
+    if "seizures" in patient.symptoms:
         recs["monitoring"].append(
-            "Family history of cancer noted — consider discussing genetic counseling with your care team."
+            "History of seizures: strict adherence to prescribed anti-epileptic medications (AEDs) "
+            "is critical. Avoid driving or operating machinery until cleared by a neurologist."
+        )
+    if "headaches" in patient.symptoms:
+        recs["monitoring"].append(
+            "Track headache patterns (worse in the morning, exacerbated by coughing/bending) "
+            "— these can reflect changes in intracranial pressure and should be reported to your care team."
         )
 
-    # --- Warning signs (when to seek urgent care) ---
-    recs["warning_signs"] = [
-        "Sudden, severe headache unlike previous headaches",
-        "New or worsening seizures",
-        "Sudden vision loss, confusion, slurred speech, or weakness on one side of the body",
-        "Persistent vomiting unrelated to other illness",
-        "Loss of consciousness",
-    ]
+    # --- Warning signs ---
+    recs["warning_signs"].append(
+        "Seek IMMEDIATE emergency care if you experience: sudden severe headache, new or worsening "
+        "seizures, acute vision loss, limb weakness, difficulty speaking, or sudden confusion."
+    )
 
     return recs
 
@@ -200,7 +188,13 @@ def build_summary_text(analysis: TumorAnalysisResult) -> str:
                if analysis.classification_confidence else ".")
         )
     if analysis.max_diameter_mm:
-        parts.append(f"Estimated maximum diameter: {analysis.max_diameter_mm:.1f} mm.")
+        if analysis.perpendicular_diameter_mm:
+            parts.append(
+                f"RANO/RECIST Bidirectional Dimensions: {analysis.max_diameter_mm:.1f} mm (major) × "
+                f"{analysis.perpendicular_diameter_mm:.1f} mm (perpendicular minor)."
+            )
+        else:
+            parts.append(f"Estimated maximum diameter: {analysis.max_diameter_mm:.1f} mm.")
     if analysis.tumor_area_mm2:
         parts.append(f"Estimated cross-sectional area: {analysis.tumor_area_mm2:.1f} mm².")
     if analysis.tumor_volume_mm3:

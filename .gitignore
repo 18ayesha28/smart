@@ -71,6 +71,7 @@ cover/
 
 # Generated reports and test outputs
 generated_report.pdf
+demo_overlay.png
 *.pdf
 
 # Datasets and archives

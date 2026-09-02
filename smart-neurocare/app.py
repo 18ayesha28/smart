@@ -31,6 +31,8 @@ from patient_lifestyle import (
     PatientDetails, TumorAnalysisResult,
     generate_full_report, generate_lifestyle_recommendations,
 )
+from image_preprocessing import preprocess_mri, crop_brain_contour, apply_clahe_enhancement
+
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -838,15 +840,26 @@ st.markdown('<div class="section-header"><span class="section-icon">📤</span> 
 uploaded_file = st.file_uploader("Upload a brain MRI image (PNG / JPEG)", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
 
 if uploaded_file is not None:
-    image = Image.open(uploaded_file).convert("RGB")
+    raw_image = Image.open(uploaded_file).convert("RGB")
+
+    # Image enhancement options
+    col_opt1, col_opt2 = st.columns(2)
+    with col_opt1:
+        enable_crop = st.checkbox("🧠 AI Brain Auto-Crop (Remove Dark Margins)", value=True, help="Removes uninformative black background to focus network receptive fields on neurological tissue.")
+    with col_opt2:
+        enable_clahe = st.checkbox("✨ CLAHE Contrast Normalization", value=True, help="Equalizes intra-scanner illumination differences (1.5T vs 3.0T MRI variance) and sharpens lesion contours.")
+
+    # Apply preprocessing if enabled
+    image = preprocess_mri(raw_image, auto_crop=enable_crop, enhance_contrast=enable_clahe)
 
     # Center column for the image
     col_left, col_center, col_right = st.columns([1, 3, 1])
 
     with col_center:
-        # Show uploaded image initially
+        # Show uploaded/enhanced image initially
         image_placeholder = st.empty()
-        image_placeholder.image(image, caption="Uploaded MRI Scan", use_column_width=True)
+        caption_text = "Uploaded MRI Scan (Enhanced with Auto-Crop & CLAHE)" if (enable_crop or enable_clahe) else "Uploaded MRI Scan"
+        image_placeholder.image(image, caption=caption_text, use_column_width=True)
 
     if st.button("🔬 Run Analysis", use_container_width=True):
         # ----- Detection -----
@@ -910,6 +923,8 @@ if uploaded_file is not None:
                 measurements = compute_tumor_measurements(mask, pixel_spacing_mm=pixel_spacing)
                 area_mm2 = measurements["area_mm2"]
                 max_diameter_mm = measurements["max_diameter_mm"]
+                perpendicular_diameter_mm = measurements.get("perpendicular_diameter_mm", 0.0)
+                product_bidirectional_mm2 = measurements.get("product_bidirectional_mm2", 0.0)
 
                 # Find tumor circle for overlay
                 orig_w, orig_h = image.size
@@ -941,6 +956,7 @@ if uploaded_file is not None:
                 severity = "moderate"
 
             # ----- Tumor Details Panel (below image) -----
+            rano_display = f"{max_diameter_mm:.1f} mm × {perpendicular_diameter_mm:.1f} mm" if (max_diameter_mm and perpendicular_diameter_mm) else f"{max_diameter_mm:.1f} mm" if max_diameter_mm else "N/A"
             st.markdown(f"""
             <div class="tumor-details-overlay">
                 <div style="text-align:center; margin-bottom:0.5rem; font-weight:700; color: #f87171; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.95rem;">
@@ -955,8 +971,8 @@ if uploaded_file is not None:
                     <span class="detail-value">{f'{classification_confidence*100:.1f}%' if classification_confidence else 'N/A'}</span>
                 </div>
                 <div class="detail-row">
-                    <span class="detail-label">Max Diameter</span>
-                    <span class="detail-value">{f'{max_diameter_mm:.1f} mm' if max_diameter_mm else 'N/A'}</span>
+                    <span class="detail-label">RANO Bidirectional Dimensions (L × W)</span>
+                    <span class="detail-value">{rano_display}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Cross-sectional Area</span>
@@ -1028,6 +1044,8 @@ if uploaded_file is not None:
             tumor_area_mm2=area_mm2,
             tumor_volume_mm3=None,
             max_diameter_mm=max_diameter_mm,
+            perpendicular_diameter_mm=perpendicular_diameter_mm,
+            product_bidirectional_mm2=product_bidirectional_mm2,
             severity_score=severity,
             segmentation_overlay_path=overlay_path,
             model_version="trained" if using_trained_weights else "demo-untrained-v0",

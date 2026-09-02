@@ -115,45 +115,55 @@ def compute_tumor_measurements(mask: torch.Tensor, pixel_spacing_mm: float, slic
     Given a binary segmentation mask (single slice or stack), compute:
       - area (mm^2) per slice
       - volume (mm^3) if multiple slices provided
-      - approximate max diameter (mm) via bounding box on the largest slice
+      - RANO / RECIST bidirectional diameters (major & perpendicular minor axis in mm)
     """
-    mask_np = (mask > 0.5).cpu().numpy()
+    mask_np = (mask > 0.5).cpu().numpy().astype(np.uint8)
+
+    def _measure_slice_rano(slice_2d: np.ndarray):
+        ys, xs = slice_2d.nonzero()
+        if len(xs) < 4:
+            return 0.0, 0.0, 0.0
+        
+        points = np.column_stack((xs, ys)).astype(np.float32)
+        # Rotated minimum bounding rectangle aligns with the true anatomical longest axis
+        rect = cv2.minAreaRect(points)
+        (_, _), (dim1, dim2), _ = rect
+        
+        major_axis = max(dim1, dim2) * pixel_spacing_mm
+        minor_axis = min(dim1, dim2) * pixel_spacing_mm
+        product_mm2 = major_axis * minor_axis
+        return float(major_axis), float(minor_axis), float(product_mm2)
 
     if mask_np.ndim == 2:  # single slice
-        pixel_count = mask_np.sum()
-        area_mm2 = pixel_count * (pixel_spacing_mm ** 2)
-        ys, xs = mask_np.nonzero()
-        max_diameter_mm = 0.0
-        if len(xs) > 0:
-            width_mm = (xs.max() - xs.min()) * pixel_spacing_mm
-            height_mm = (ys.max() - ys.min()) * pixel_spacing_mm
-            max_diameter_mm = max(width_mm, height_mm)
+        pixel_count = int(mask_np.sum())
+        area_mm2 = float(pixel_count * (pixel_spacing_mm ** 2))
+        max_d, perp_d, prod_mm2 = _measure_slice_rano(mask_np)
+
         return {
-            "area_mm2": float(area_mm2),
+            "area_mm2": area_mm2,
             "volume_mm3": None,
-            "max_diameter_mm": float(max_diameter_mm),
+            "max_diameter_mm": max_d,
+            "perpendicular_diameter_mm": perp_d,
+            "product_bidirectional_mm2": prod_mm2,
         }
 
     elif mask_np.ndim == 3 and slice_thickness_mm:  # volume stack (slices, H, W)
         voxel_volume = (pixel_spacing_mm ** 2) * slice_thickness_mm
-        total_voxels = mask_np.sum()
-        volume_mm3 = total_voxels * voxel_volume
+        total_voxels = int(mask_np.sum())
+        volume_mm3 = float(total_voxels * voxel_volume)
 
         # Largest slice for diameter estimate
         slice_sums = mask_np.reshape(mask_np.shape[0], -1).sum(axis=1)
         largest_slice_idx = slice_sums.argmax()
         largest_slice = mask_np[largest_slice_idx]
-        ys, xs = largest_slice.nonzero()
-        max_diameter_mm = 0.0
-        if len(xs) > 0:
-            width_mm = (xs.max() - xs.min()) * pixel_spacing_mm
-            height_mm = (ys.max() - ys.min()) * pixel_spacing_mm
-            max_diameter_mm = max(width_mm, height_mm)
+        max_d, perp_d, prod_mm2 = _measure_slice_rano(largest_slice)
 
         return {
             "area_mm2": None,
-            "volume_mm3": float(volume_mm3),
-            "max_diameter_mm": float(max_diameter_mm),
+            "volume_mm3": volume_mm3,
+            "max_diameter_mm": max_d,
+            "perpendicular_diameter_mm": perp_d,
+            "product_bidirectional_mm2": prod_mm2,
         }
 
     raise ValueError("Unsupported mask shape or missing slice_thickness_mm for 3D volume.")
