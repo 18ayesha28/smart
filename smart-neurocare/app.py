@@ -5,11 +5,20 @@ Enterprise-Grade AI Neuro-Oncology Clinical Decision Support (CDS) Suite
 State-Driven Clinical Workstation:
   - State 1: Scan & Patient Intake (Clean dual-path intake with case presets)
   - State 2: Comprehensive Diagnostic Results with clear '⬅ Back to Intake' & '🔄 New Scan' navigation
-  - Zero empty voids, compact clinical spacing, high-density medical layout
+
+Differentiating feature: Longitudinal Treatment-Response Tracking. Every analyzed
+scan is persisted as a "visit" for the entered Patient ID (patient_history.py,
+SQLite). Once a patient has 2+ visits, treatment_response.py compares the
+current measurement against baseline/previous/nadir and produces a
+measurement-based, RANO-inspired response assessment — decision-support only,
+not a diagnostic system, not clinically validated. See the "Treatment
+Response" tab and its disclaimer for the exact scope of what this determines.
 """
 
 import os
-import io
+import uuid
+from datetime import datetime
+
 import cv2
 import numpy as np
 from PIL import Image
@@ -20,14 +29,18 @@ import streamlit as st
 from cnn_detection_model import TumorDetectionModel
 from train_classification import TumorClassificationModel
 from unet_segmentation import UNet, compute_tumor_measurements, find_tumor_circle
-from hospital_recommendation import recommend_hospitals, default_hospitals
+from hospital_recommendation import recommend_hospitals, default_hospitals, PatientContext
 from patient_lifestyle import (
-    PatientProfile,
+    PatientDetails,
     TumorAnalysisResult,
     generate_lifestyle_recommendations,
-    generate_patient_report,
+    generate_full_report,
 )
 from image_preprocessing import preprocess_mri
+from patient_history import record_visit, get_visit_history
+from treatment_response import (
+    classify_response, VisitMeasurement, INSUFFICIENT_DATA, CR, PR, SD, PD,
+)
 
 # ---------------------------------------------------------------------------
 # Page configuration
@@ -48,6 +61,13 @@ if not os.path.exists(SAMPLE_DIR):
     from create_sample_scans import generate_sample_mris
     generate_sample_mris(SAMPLE_DIR)
 
+DETECTION_CKPT = "best_detection_model.pt"
+CLASSIFICATION_CKPT = "best_classification_model.pt"
+SEGMENTATION_CKPT = "best_segmentation_model.pt"
+using_trained_weights = all(os.path.exists(p) for p in [DETECTION_CKPT, CLASSIFICATION_CKPT, SEGMENTATION_CKPT])
+MODEL_VERSION = "trained-checkpoints-v1" if using_trained_weights else "demo-untrained-v0"
+
+
 @st.cache_resource
 def load_models():
     detection_model = TumorDetectionModel(pretrained=False)
@@ -65,6 +85,12 @@ def load_models():
     return detection_model, classification_model, segmentation_model
 
 detection_model, classification_model, segmentation_model = load_models()
+
+EVAL_TRANSFORMS = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])
 
 # ---------------------------------------------------------------------------
 # Helper: draw red circle overlay
@@ -87,6 +113,32 @@ def draw_tumor_overlay(image: Image.Image, circle_info: dict) -> Image.Image:
     cv2.line(img_bgr, (cx, cy + r), (cx, cy + r - tick_len), color, 1, cv2.LINE_AA)
 
     return Image.fromarray(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
+
+
+# ---------------------------------------------------------------------------
+# Helper: adapt persisted visit rows into treatment_response's input type
+# ---------------------------------------------------------------------------
+def _history_to_measurements(history) -> list:
+    return [
+        VisitMeasurement(
+            scan_date=v.scan_date,
+            tumor_type=v.tumor_type,
+            max_diameter_mm=v.max_diameter_mm,
+            perpendicular_diameter_mm=v.perpendicular_diameter_mm,
+            product_bidirectional_mm2=v.product_bidirectional_mm2,
+            area_mm2=v.area_mm2,
+            visit_id=v.visit_id,
+        )
+        for v in history
+    ]
+
+
+RESPONSE_BADGE_STYLE = {
+    CR: ("#f0fdf4", "#bbf7d0", "#15803d"),
+    PR: ("#f0fdf4", "#bbf7d0", "#15803d"),
+    SD: ("#fffbeb", "#fde68a", "#b45309"),
+    PD: ("#fef2f2", "#fecaca", "#dc2626"),
+}
 
 # ---------------------------------------------------------------------------
 # Custom CSS — Clean Medical Workstation
@@ -151,6 +203,7 @@ header[data-testid="stHeader"] { display: none !important; }
 
 .status-pill.success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; }
 .status-pill.info { background: #f0f9ff; border: 1px solid #bae6fd; color: #0369a1; }
+.status-pill.warn { background: #fffbeb; border: 1px solid #fde68a; color: #b45309; }
 
 /* ── Panels ── */
 .pacs-panel {
@@ -291,6 +344,67 @@ header[data-testid="stHeader"] { display: none !important; }
     color: #0284c7 !important;
     border: 1px solid #bae6fd !important;
 }
+
+/* ── Response Assessment ── */
+.response-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.85rem;
+    border-radius: 6px;
+    font-weight: 800;
+    font-size: 0.95rem;
+    margin-bottom: 0.5rem;
+}
+
+.visit-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    margin-bottom: 0.5rem;
+}
+
+.visit-table th, .visit-table td {
+    border: 1px solid #e2e8f0;
+    padding: 0.35rem 0.5rem;
+    text-align: left;
+}
+
+.visit-table th {
+    background: #f8fafc;
+    font-weight: 700;
+    color: #334155;
+}
+
+.demo-tag {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+    border-radius: 4px;
+    padding: 0.05rem 0.35rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    margin-left: 0.4rem;
+}
+
+.caveat-box {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 6px;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.76rem;
+    color: #78350f;
+    margin-bottom: 0.5rem;
+}
+
+.disclaimer-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.72rem;
+    color: #64748b;
+    font-style: italic;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -353,6 +467,9 @@ with st.sidebar.expander("📍 Location & Insurance"):
     lon = st.number_input("Longitude", value=77.5946, format="%.4f")
     pixel_spacing = st.number_input("DICOM Pixel Spacing (mm)", value=1.0, step=0.1)
 
+visit_count = len(get_visit_history(patient_id)) if patient_id.strip() else 0
+st.sidebar.caption(f"🕒 {visit_count} prior visit(s) on record for this Patient ID")
+
 
 # ---------------------------------------------------------------------------
 # View State Management (Intake vs Results)
@@ -360,16 +477,21 @@ with st.sidebar.expander("📍 Location & Insurance"):
 if "view_state" not in st.session_state:
     st.session_state["view_state"] = "intake"
 
-# Top Navigation Bar
-st.markdown("""
+model_status_pill = (
+    '<span class="status-pill success">🟢 Trained Checkpoints Loaded</span>'
+    if using_trained_weights else
+    '<span class="status-pill warn">⚠ Demo Weights — Not Clinically Meaningful</span>'
+)
+
+st.markdown(f"""
 <div class="clinical-navbar">
     <div style="display:flex; align-items:center; gap:0.4rem;">
         <span style="font-size:1.2rem;">🧠</span>
         <span class="brand-title">Smart NeuroCare™</span>
-        <span style="font-size:0.72rem; color:#0284c7; background:#f0f9ff; border:1px solid #bae6fd; padding:0.15rem 0.45rem; border-radius:4px; font-weight:600;">Clinical Decision Support v2.4</span>
+        <span style="font-size:0.72rem; color:#0284c7; background:#f0f9ff; border:1px solid #bae6fd; padding:0.15rem 0.45rem; border-radius:4px; font-weight:600;">Clinical Decision Support v2.5</span>
     </div>
     <div style="display:flex; align-items:center; gap:0.4rem;">
-        <span class="status-pill success">🟢 ResNet + UNet Active</span>
+        {model_status_pill}
         <span class="status-pill info">📐 DICOM Calibrated</span>
     </div>
 </div>
@@ -400,40 +522,42 @@ if st.session_state["view_state"] == "intake":
 
         active_img = None
         active_img_name = None
+        active_img_is_demo = False
 
         if intake_mode == "🧪 Verified Clinical Demo Cases":
-            demo_case = st.selectbox(
-                "Clinical Demo Slices",
-                [
-                    "Case 1: Frontal Meningioma (Axial T1+C)",
-                    "Case 2: Temporal High-Grade Glioma (Axial T2)",
-                    "Case 3: Sellar Pituitary Macroadenoma (Coronal T1)",
-                    "Case 4: Healthy Brain Screening (Normal)",
-                ],
-            )
+            # Single source of truth for label <-> filename, so a label typo can
+            # never desync from the lookup table (this caused a KeyError before).
             case_map = {
-                "Case 1: Frontal Meningioma (Axial T1+C)": ("meningioma_sample.png", "Case_1_Meningioma.png"),
-                "Case 2: Temporal High-Grade Glioma (Axial T2)": ("glioma_sample.png", "Case_2_Glioma.png"),
-                "Case 3: Sellar Pituitary Macroadenoma (Coronal T1)": ("pituitary_sample.png", "Case_3_Pituitary.png"),
-                "Case 4: Healthy Screening (Normal Brain)": ("healthy_normal_sample.png", "Case_4_Normal.png"),
+                "Case 1: Frontal Meningioma (Axial T1+C)": "meningioma_sample.png",
+                "Case 2: Temporal High-Grade Glioma (Axial T2)": "glioma_sample.png",
+                "Case 3: Sellar Pituitary Macroadenoma (Coronal T1)": "pituitary_sample.png",
+                "Case 4: Healthy Brain Screening (Normal)": "healthy_normal_sample.png",
+                "Case 5 (DEMO — Simulated Follow-up): Glioma, smaller vs. Case 2": "glioma_followup_smaller_demo.png",
+                "Case 6 (DEMO — Simulated Follow-up): Glioma, larger vs. Case 2": "glioma_followup_larger_demo.png",
             }
-            f_name, label_name = case_map[demo_case]
+            demo_case = st.selectbox("Clinical Demo Slices", list(case_map.keys()))
+            if "DEMO" in demo_case:
+                st.caption("⚠ SIMULATED FOLLOW-UP — a synthetically resized lesion for demonstrating longitudinal tracking only. Not a real patient scan.")
+            f_name = case_map[demo_case]
             target_path = os.path.join(SAMPLE_DIR, f_name)
             if os.path.exists(target_path):
                 active_img = Image.open(target_path).convert("RGB")
-                active_img_name = label_name
+                active_img_name = f_name
+                active_img_is_demo = "_demo" in f_name
 
         else:
             up_file = st.file_uploader("Upload MRI Slice", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
             if up_file is not None:
                 active_img = Image.open(up_file).convert("RGB")
                 active_img_name = up_file.name
+                active_img_is_demo = False
 
         st.markdown("</div>", unsafe_allow_html=True)
 
         if active_img is not None:
             st.session_state["loaded_image"] = active_img
             st.session_state["loaded_image_name"] = active_img_name
+            st.session_state["loaded_image_is_demo"] = active_img_is_demo
 
             st.markdown(f"""
             <div class="pacs-panel">
@@ -466,6 +590,7 @@ if st.session_state["view_state"] == "intake":
 
                 if st.button("🔬 Execute Diagnostic Analysis ➔", use_container_width=True):
                     st.session_state["view_state"] = "results"
+                    st.session_state["analysis_nonce"] = str(uuid.uuid4())
                     st.rerun()
 
             st.markdown("</div>", unsafe_allow_html=True)
@@ -482,7 +607,8 @@ if st.session_state["view_state"] == "intake":
                 <b>BMI Index:</b> {bmi:.1f} ({'Normal range' if 18.5<=bmi<25 else 'Elevated range'})<br>
                 <b>Insurance Provider:</b> {insurance} (Max Budget: ₹{budget:,.0f})<br>
                 <b>Reported Symptoms:</b> {', '.join(symptoms) if symptoms else 'None'}<br>
-                <b>Comorbidities:</b> {', '.join(existing_conditions) if existing_conditions else 'None'}
+                <b>Comorbidities:</b> {', '.join(existing_conditions) if existing_conditions else 'None'}<br>
+                <b>Visit history:</b> {visit_count} prior visit(s) recorded for this Patient ID
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -496,7 +622,7 @@ if st.session_state["view_state"] == "intake":
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; font-size:0.78rem;">
                 <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:0.55rem;">
                     <b>1. Binary Detection</b><br>
-                    <span style="color:#64748b;">High-sensitivity ResNet backbone flags neoplastic mass presence.</span>
+                    <span style="color:#64748b;">High-sensitivity CNN backbone flags neoplastic mass presence.</span>
                 </div>
                 <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:0.55rem;">
                     <b>2. Differential Typing</b><br>
@@ -510,6 +636,10 @@ if st.session_state["view_state"] == "intake":
                     <b>4. Geospatial Routing</b><br>
                     <span style="color:#64748b;">Multi-criteria hospital matching scoring surgeon quality & insurance.</span>
                 </div>
+                <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:6px; padding:0.55rem; grid-column: span 2;">
+                    <b>5. Longitudinal Response Tracking (NEW)</b><br>
+                    <span style="color:#64748b;">Compares this Patient ID's measurements across visits against baseline / previous / nadir and produces a measurement-based, RANO-inspired response assessment — decision-support only.</span>
+                </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -521,6 +651,7 @@ if st.session_state["view_state"] == "intake":
 elif st.session_state["view_state"] == "results":
     processed_img = st.session_state.get("processed_image")
     img_name = st.session_state.get("loaded_image_name", "Scan.png")
+    img_is_demo = st.session_state.get("loaded_image_is_demo", False)
 
     if processed_img is None:
         st.session_state["view_state"] = "intake"
@@ -541,13 +672,8 @@ elif st.session_state["view_state"] == "results":
             st.session_state.pop("loaded_image_name", None)
             st.rerun()
 
-    # Run Analysis Computations
-    eval_transforms = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ])
-    tensor = eval_transforms(processed_img).unsqueeze(0)
+    # ----- Run Analysis Computations -----
+    tensor = EVAL_TRANSFORMS(processed_img).unsqueeze(0)
     with torch.no_grad():
         logit = detection_model(tensor)
         prob = torch.sigmoid(logit).item()
@@ -555,6 +681,7 @@ elif st.session_state["view_state"] == "results":
 
     tumor_type = None
     classification_confidence = None
+    class_probs = None
     max_diameter_mm = None
     perpendicular_diameter_mm = None
     product_bidirectional_mm2 = None
@@ -562,6 +689,7 @@ elif st.session_state["view_state"] == "results":
     severity = None
     overlay_path = None
     circle_info = None
+    annotated = None
 
     if tumor_detected:
         with torch.no_grad():
@@ -598,20 +726,24 @@ elif st.session_state["view_state"] == "results":
         else:
             severity = "moderate"
 
+    visit_scan_date = datetime.now().strftime("%Y-%m-%d %H:%M")
+
     analysis = TumorAnalysisResult(
         tumor_detected=tumor_detected,
         detection_confidence=prob,
         tumor_type=tumor_type,
         classification_confidence=classification_confidence,
+        tumor_area_mm2=area_mm2,
         max_diameter_mm=max_diameter_mm,
         perpendicular_diameter_mm=perpendicular_diameter_mm,
         product_bidirectional_mm2=product_bidirectional_mm2,
-        area_mm2=area_mm2,
-        severity=severity,
-        overlay_image_path=overlay_path,
+        severity_score=severity,
+        segmentation_overlay_path=overlay_path,
+        model_version=MODEL_VERSION,
+        scan_date=visit_scan_date,
     )
 
-    patient = PatientProfile(
+    patient = PatientDetails(
         name=name,
         patient_id=patient_id,
         age=int(age),
@@ -625,11 +757,34 @@ elif st.session_state["view_state"] == "results":
         existing_conditions=existing_conditions,
         family_history_cancer=family_history_cancer,
         symptoms=symptoms,
-        max_budget=float(budget),
-        insurance_provider=insurance,
-        latitude=float(lat),
-        longitude=float(lon),
     )
+
+    patient_ctx = PatientContext(
+        latitude=float(lat), longitude=float(lon),
+        tumor_type=tumor_type or "notumor",
+        severity_score=severity or "low",
+        max_budget=float(budget), insurance_provider=insurance,
+    )
+
+    # ----- Persist this analysis as one visit (exactly once per button click) -----
+    current_nonce = st.session_state.get("analysis_nonce")
+    if patient_id.strip() and current_nonce and st.session_state.get("last_recorded_nonce") != current_nonce:
+        record_visit(
+            patient_id=patient_id,
+            scan_date=visit_scan_date,
+            tumor_type=tumor_type,
+            max_diameter_mm=max_diameter_mm,
+            perpendicular_diameter_mm=perpendicular_diameter_mm,
+            product_bidirectional_mm2=product_bidirectional_mm2,
+            area_mm2=area_mm2,
+            severity_score=severity,
+            overlay_path=overlay_path,
+            is_demo=img_is_demo,
+        )
+        st.session_state["last_recorded_nonce"] = current_nonce
+
+    visit_history = get_visit_history(patient_id) if patient_id.strip() else []
+    response_result = classify_response(_history_to_measurements(visit_history)) if visit_history else None
 
     # 1. Executive Result Alert Banner
     if tumor_detected:
@@ -689,18 +844,19 @@ elif st.session_state["view_state"] == "results":
         <div class="pacs-panel">
             <div class="pacs-panel-header"><span>🖼️ Spatial Localization View</span></div>
         """, unsafe_allow_html=True)
-        if tumor_detected and circle_info and 'annotated' in locals():
+        if tumor_detected and circle_info and annotated is not None:
             st.image(annotated, width=280, caption="Tumor Localized (Crosshair Red Ring Indicator)")
         else:
             st.image(processed_img, width=280, caption="Normal Brain Parenchyma (Clear)")
         st.markdown("</div>", unsafe_allow_html=True)
 
     with col_res_tabs:
-        res_t1, res_t2, res_t3, res_t4 = st.tabs([
+        res_t1, res_t2, res_t3, res_t4, res_t5 = st.tabs([
             "📊 Quantitative Sizing",
             "🏥 Neurosurgical Routing",
             "💚 Care Guidance",
-            "📄 Download PDF"
+            "🕒 Treatment Response",
+            "📄 Download PDF",
         ])
 
         with res_t1:
@@ -729,7 +885,7 @@ elif st.session_state["view_state"] == "results":
                     """, unsafe_allow_html=True)
 
         with res_t2:
-            matched_hospitals = recommend_hospitals(patient, analysis, default_hospitals(), top_n=3)
+            matched_hospitals = recommend_hospitals(patient_ctx, default_hospitals(), top_k=3)
             for h in matched_hospitals:
                 h_name = h.get("name", "Neurosurgical Centre")
                 h_city = h.get("city", "")
@@ -762,8 +918,80 @@ elif st.session_state["view_state"] == "results":
                 """, unsafe_allow_html=True)
 
         with res_t4:
+            if response_result is None or response_result.category == INSUFFICIENT_DATA:
+                st.markdown("""
+                <div class="pacs-panel" style="text-align:center; padding:1.5rem;">
+                    <p style="font-size:0.9rem; font-weight:700; color:#0f172a;">Baseline established.</p>
+                    <p style="font-size:0.8rem; color:#64748b;">A longitudinal response assessment will become available after a follow-up scan for this same Patient ID.</p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                ra = response_result
+                bg, border, fg = RESPONSE_BADGE_STYLE.get(ra.category, ("#f8fafc", "#e2e8f0", "#334155"))
+                st.markdown(
+                    f'<span class="response-badge" style="background:{bg}; border:1px solid {border}; color:{fg};">{ra.category}</span>',
+                    unsafe_allow_html=True,
+                )
+                st.caption(ra.assessment_label)
+
+                def _fmt_pct(v):
+                    return f"{v:+.1f}%" if v is not None else "N/A"
+
+                def _fmt_visit(v):
+                    if v is None:
+                        return "N/A"
+                    val, _ = (v.product_bidirectional_mm2, "product") if v.product_bidirectional_mm2 else (v.area_mm2, "area")
+                    return f"{v.scan_date} — {val:.1f} mm²" if val is not None else f"{v.scan_date} — no measurable tumor"
+
+                st.markdown(f"""
+                <table class="visit-table">
+                    <tr><th>Reference</th><th>Visit</th><th>% Change vs. Current</th></tr>
+                    <tr><td>Baseline (first visit)</td><td>{_fmt_visit(ra.baseline)}</td><td>{_fmt_pct(ra.pct_change_from_baseline)}</td></tr>
+                    <tr><td>Previous visit</td><td>{_fmt_visit(ra.previous)}</td><td>{_fmt_pct(ra.pct_change_from_previous)}</td></tr>
+                    <tr><td>Nadir (smallest prior)</td><td>{_fmt_visit(ra.nadir)}</td><td>{_fmt_pct(ra.pct_change_from_nadir)}</td></tr>
+                    <tr><td>Current visit</td><td>{_fmt_visit(ra.current)}</td><td>—</td></tr>
+                </table>
+                """, unsafe_allow_html=True)
+
+                st.markdown(f"<p style='font-size:0.78rem; color:#334155;'><b>Rationale:</b> {ra.rationale}</p>", unsafe_allow_html=True)
+
+                if ra.caveats:
+                    caveats_html = "".join(f"<li>{c}</li>" for c in ra.caveats)
+                    st.markdown(f'<div class="caveat-box"><b>⚠ Caveats:</b><ul style="margin:0.25rem 0 0 1rem;">{caveats_html}</ul></div>', unsafe_allow_html=True)
+
+                # Trend chart across all visits (not just the ones used as references)
+                chart_rows = {
+                    v.scan_date: (v.product_bidirectional_mm2 if v.product_bidirectional_mm2 else (v.area_mm2 or 0.0))
+                    for v in visit_history
+                }
+                if len(chart_rows) >= 2:
+                    st.caption("Measurement trend across visits (mm²):")
+                    st.line_chart(chart_rows)
+
+                st.markdown("<p style='font-size:0.78rem; font-weight:700; color:#0f172a; margin-top:0.5rem;'>Visit history for this Patient ID:</p>", unsafe_allow_html=True)
+                rows = "".join(
+                    f"<tr><td>{v.scan_date}</td><td style='text-transform:capitalize;'>{v.tumor_type or 'N/A'}</td>"
+                    f"<td>{f'{v.product_bidirectional_mm2:.1f} mm²' if v.product_bidirectional_mm2 else 'N/A'}</td>"
+                    f"<td>{'<span class=\"demo-tag\">DEMO / SIMULATED</span>' if v.is_demo else 'Real intake'}</td></tr>"
+                    for v in visit_history
+                )
+                st.markdown(f"""
+                <table class="visit-table">
+                    <tr><th>Date</th><th>Tumor Type</th><th>Product (L×W)</th><th>Source</th></tr>
+                    {rows}
+                </table>
+                <div class="disclaimer-box">{ra.disclaimer}</div>
+                """, unsafe_allow_html=True)
+
+        with res_t5:
             report_path = "generated_report.pdf"
-            generate_patient_report(patient, analysis, matched_hospitals if 'matched_hospitals' in locals() else [], report_path)
+            pdf_response_assessment = response_result if (response_result and response_result.category != INSUFFICIENT_DATA) else None
+            generate_full_report(
+                patient, analysis,
+                matched_hospitals if "matched_hospitals" in dir() else [],
+                report_path,
+                response_assessment=pdf_response_assessment,
+            )
             with open(report_path, "rb") as f:
                 pdf_bytes = f.read()
 
@@ -774,12 +1002,16 @@ elif st.session_state["view_state"] == "results":
                 mime="application/pdf",
                 use_container_width=True,
             )
+            if pdf_response_assessment:
+                st.caption("This PDF includes a Treatment Response Assessment section, computed from the same result shown in the Treatment Response tab.")
 
 # ---------------------------------------------------------------------------
 # Footer Disclaimer
 # ---------------------------------------------------------------------------
 st.markdown("""
 <div style="text-align:center; padding:0.6rem 0; margin-top:1rem; color:#94a3b8; font-size:0.7rem; border-top:1px solid #e2e8f0;">
-    ⚖️ <b>Clinical Decision Support Disclaimer:</b> Smart NeuroCare is an investigational AI-assisted triaging tool. All findings require radiologist verification.
+    ⚖️ <b>Clinical Decision Support Disclaimer:</b> Smart NeuroCare is an investigational, non-diagnostic AI-assisted triage and monitoring aid.
+    It has not been clinically validated. All findings — including the Treatment Response Assessment — require review and confirmation by a
+    licensed radiologist or oncologist and do not substitute for professional medical judgment.
 </div>
 """, unsafe_allow_html=True)

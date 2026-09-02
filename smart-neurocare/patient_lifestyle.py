@@ -76,7 +76,7 @@ class PatientDetails:
         return "obese"
 
 
-# Alias for backward compatibility
+# Alias for backward compatibility across modules
 PatientProfile = PatientDetails
 
 
@@ -232,11 +232,64 @@ def build_summary_text(analysis: TumorAnalysisResult) -> str:
     return " ".join(parts)
 
 
+def _add_response_assessment_section(story, styles, response_assessment):
+    """
+    Renders the same ResponseAssessment object treatment_response.classify_response()
+    produces for the Streamlit UI — no threshold logic is duplicated here, this
+    function only formats fields that were already computed.
+    """
+    from treatment_response import INSUFFICIENT_DATA  # local import: keeps this module's only
+    # hard dependency on treatment_response confined to formatting, not decision logic.
+
+    if response_assessment is None or response_assessment.category == INSUFFICIENT_DATA:
+        return
+
+    ra = response_assessment
+    story.append(Paragraph("Treatment Response Assessment", styles["Heading2"]))
+    story.append(Paragraph(f"<i>{ra.assessment_label}</i>", styles["Normal"]))
+    story.append(Spacer(1, 2 * mm))
+
+    def _pct(v):
+        return f"{v:+.1f}%" if v is not None else "N/A"
+
+    resp_table_data = [
+        ["Category", ra.category],
+        ["Baseline visit", ra.baseline.scan_date if ra.baseline else "N/A"],
+        ["Previous visit", ra.previous.scan_date if ra.previous else "N/A"],
+        ["Nadir (smallest prior measurement)", ra.nadir.scan_date if ra.nadir else "N/A"],
+        ["Change vs. baseline", _pct(ra.pct_change_from_baseline)],
+        ["Change vs. previous visit", _pct(ra.pct_change_from_previous)],
+        ["Change vs. nadir", _pct(ra.pct_change_from_nadir)],
+    ]
+    resp_table = Table(resp_table_data, colWidths=[65 * mm, 105 * mm])
+    resp_table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
+        ("BACKGROUND", (0, 0), (0, -1), colors.whitesmoke),
+        ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+    ]))
+    story.append(resp_table)
+    story.append(Spacer(1, 3 * mm))
+    story.append(Paragraph(f"<b>Rationale:</b> {ra.rationale}", styles["Normal"]))
+
+    if ra.caveats:
+        story.append(Spacer(1, 2 * mm))
+        story.append(Paragraph("<b>Caveats:</b>", styles["Normal"]))
+        story.append(ListFlowable(
+            [ListItem(Paragraph(c, styles["Normal"])) for c in ra.caveats],
+            bulletType="bullet",
+        ))
+
+    story.append(Spacer(1, 2 * mm))
+    story.append(Paragraph(ra.disclaimer, styles["Disclaimer"]))
+    story.append(Spacer(1, 6 * mm))
+
+
 def generate_full_report(
     patient: PatientDetails,
     analysis: TumorAnalysisResult,
     recommended_hospitals: list,   # list of dicts from hospital_recommendation.recommend_hospitals
     output_path: str,
+    response_assessment=None,      # Optional[treatment_response.ResponseAssessment]
 ):
     doc = SimpleDocTemplate(output_path, pagesize=A4, topMargin=18 * mm, bottomMargin=18 * mm)
     styles = getSampleStyleSheet()
@@ -302,6 +355,9 @@ def generate_full_report(
         story.append(hosp_table)
         story.append(Spacer(1, 6 * mm))
 
+    # --- Treatment response (longitudinal), if available ---
+    _add_response_assessment_section(story, styles, response_assessment)
+
     # --- Lifestyle recommendations ---
     lifestyle = generate_lifestyle_recommendations(patient, analysis)
     story.append(Paragraph("Personalized Lifestyle & Recovery Guidance", styles["Heading2"]))
@@ -329,7 +385,7 @@ def generate_full_report(
     return output_path
 
 
-# Alias for backward compatibility
+# Alias for backward compatibility across modules
 generate_patient_report = generate_full_report
 
 

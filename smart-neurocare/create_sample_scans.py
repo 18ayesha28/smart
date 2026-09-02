@@ -13,7 +13,21 @@ def generate_sample_mris(output_dir="sample_scans"):
         "meningioma_sample.png": {"tumor": True, "type": "meningioma", "loc": (175, 110), "r": 28, "bright": 210},
         "glioma_sample.png": {"tumor": True, "type": "glioma", "loc": (95, 145), "r": 34, "bright": 195},
         "pituitary_sample.png": {"tumor": True, "type": "pituitary", "loc": (128, 140), "r": 22, "bright": 225},
-        "healthy_normal_sample.png": {"tumor": False, "type": "normal", "loc": None, "r": 0, "bright": 0}
+        "healthy_normal_sample.png": {"tumor": False, "type": "normal", "loc": None, "r": 0, "bright": 0},
+        # --- DEMO / SIMULATED FOLLOW-UP SCANS ---
+        # These are NOT real patient follow-up data. They exist solely to let a
+        # reviewer demonstrate the longitudinal treatment-response feature (two
+        # "visits" for the same demo patient_id) without needing a real serial-MRI
+        # dataset. Each is watermarked "SIMULATED FOLLOW-UP" directly on the image
+        # and must never be presented as a real clinical scan.
+        "glioma_followup_smaller_demo.png": {
+            "tumor": True, "type": "glioma", "loc": (95, 145), "r": 17, "bright": 195,
+            "demo_watermark": True,
+        },
+        "glioma_followup_larger_demo.png": {
+            "tumor": True, "type": "glioma", "loc": (95, 145), "r": 46, "bright": 195,
+            "demo_watermark": True,
+        },
     }
 
     for filename, config in samples.items():
@@ -61,8 +75,17 @@ def generate_sample_mris(output_dir="sample_scans"):
         img_smooth = cv2.GaussianBlur(img_float, (5, 5), 1.2)
         img_final = np.clip(img_smooth, 0, 255).astype(np.uint8)
 
-        # Convert to 3-channel RGB and save
-        Image.fromarray(img_final).convert("RGB").save(filepath)
+        # Burn an unmistakable watermark into simulated follow-up scans so the
+        # image itself can never be mistaken for real patient data, even if it
+        # were exported/shared outside the app.
+        img_rgb = cv2.cvtColor(img_final, cv2.COLOR_GRAY2BGR)
+        if config.get("demo_watermark"):
+            cv2.rectangle(img_rgb, (0, 0), (256, 22), (0, 0, 0), -1)
+            cv2.putText(img_rgb, "SIMULATED FOLLOW-UP - DEMO ONLY", (4, 15),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 200, 255), 1, cv2.LINE_AA)
+
+        # Convert to RGB and save
+        Image.fromarray(cv2.cvtColor(img_rgb, cv2.COLOR_BGR2RGB)).save(filepath)
 
     return samples
 

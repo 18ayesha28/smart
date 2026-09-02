@@ -73,7 +73,6 @@ def specialization_match_score(hospital: Hospital, tumor_type: Optional[str]) ->
 
 
 def distance_score(distance_km: float, max_reasonable_km: float = 800.0) -> float:
-    """Closer is better; score decays linearly, floors at 0.1."""
     return max(0.1, 1.0 - (distance_km / max_reasonable_km))
 
 
@@ -117,7 +116,7 @@ def default_hospitals() -> list[Hospital]:
             city="Bengaluru", accepted_insurance=["StarHealth", "HDFC Ergo", "ICICI Lombard", "Bajaj Allianz"]
         ),
         Hospital(
-            "h4", "Tata Memorial Hospital — Advanced Centre for Treatment & Research in Cancer",
+            "h4", "Tata Memorial Hospital — ACTREC Cancer Centre",
             19.0069, 72.8427, ["neuro-oncology", "endocrine neurosurgery", "neurosurgery"],
             rating=4.9, success_rate=94.0, avg_cost_min=250000, avg_cost_max=500000,
             city="Mumbai", accepted_insurance=["StarHealth", "HDFC Ergo", "ICICI Lombard", "Ayushman Bharat", "CGHS"]
@@ -145,11 +144,10 @@ def recommend_hospitals(
     top_n: int = 5,
 ) -> list[dict]:
     """
-    Flexible hospital recommendation engine supporting both API signatures:
+    Score and rank hospitals for a given patient context. Supports both signatures:
       1) recommend_hospitals(patient_context, hospitals, top_k=5)
-      2) recommend_hospitals(patient_profile, analysis_result, hospitals_list, top_n=4)
+      2) recommend_hospitals(patient_profile, analysis_result, hospitals_list, top_n=3)
     """
-    # Extract actual hospital list
     if hospitals_list is not None:
         hospitals = hospitals_list
         k = top_n
@@ -160,26 +158,27 @@ def recommend_hospitals(
         hospitals = default_hospitals()
         k = top_n
 
-    # Extract patient and tumor metadata
     lat = getattr(patient, "latitude", 12.9716)
     lon = getattr(patient, "longitude", 77.5946)
     budget = getattr(patient, "max_budget", None)
     insurance = getattr(patient, "insurance_provider", None)
 
-    # Tumor type and severity from analysis or patient
     tumor_type = getattr(patient, "tumor_type", None)
-    severity_score = getattr(patient, "severity_score", "moderate")
+    severity_score = getattr(patient, "severity_score", None)
 
     if analysis_or_hospitals is not None and not isinstance(analysis_or_hospitals, list):
-        if hasattr(analysis_or_hospitals, "tumor_type") and analysis_or_hospitals.tumor_type:
+        if not tumor_type and hasattr(analysis_or_hospitals, "tumor_type"):
             tumor_type = analysis_or_hospitals.tumor_type
-        if hasattr(analysis_or_hospitals, "severity") and analysis_or_hospitals.severity:
-            severity_score = analysis_or_hospitals.severity
-        elif hasattr(analysis_or_hospitals, "severity_score") and analysis_or_hospitals.severity_score:
-            severity_score = analysis_or_hospitals.severity_score
+        if not severity_score:
+            if hasattr(analysis_or_hospitals, "severity_score") and analysis_or_hospitals.severity_score:
+                severity_score = analysis_or_hospitals.severity_score
+            elif hasattr(analysis_or_hospitals, "severity") and analysis_or_hospitals.severity:
+                severity_score = analysis_or_hospitals.severity
 
     if not tumor_type:
         tumor_type = "glioma"
+    if not severity_score:
+        severity_score = "moderate"
 
     severity_boost = SEVERITY_WEIGHT_BOOST.get(str(severity_score).lower(), 0.0)
     weights = {
@@ -227,10 +226,5 @@ def recommend_hospitals(
 
 
 if __name__ == "__main__":
-    p = PatientContext(
-        latitude=12.9716, longitude=77.5946,
-        tumor_type="glioma", severity_score="high",
-        max_budget=800000, insurance_provider="StarHealth",
-    )
-    for rec in recommend_hospitals(p, default_hospitals()):
-        print(rec)
+    p = PatientContext(latitude=12.9716, longitude=77.5946, tumor_type="glioma")
+    print(recommend_hospitals(p, default_hospitals()))
