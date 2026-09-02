@@ -53,24 +53,25 @@ SEGMENTATION_CKPT = "best_segmentation_model.pt"
 using_trained_weights = all(os.path.exists(p) for p in [DETECTION_CKPT, CLASSIFICATION_CKPT, SEGMENTATION_CKPT])
 
 # ---------------------------------------------------------------------------
-# Custom CSS — Premium Clinical Light Theme
+# Custom CSS — Clean Clinical Sapphire & Slate Palette
 # ---------------------------------------------------------------------------
 st.markdown("""
 <style>
 /* ── Google Fonts ── */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-/* ── Root Variables — Clinical Light Theme ── */
+/* ── Root Variables — Flat Clinical Palette ── */
 :root {
     --bg-primary: #f8fafc;
     --bg-secondary: #ffffff;
     --bg-card: #ffffff;
     --bg-card-hover: #fcfdfe;
-    --glass-border: #e2e8f0;
-    --glass-glow: rgba(37, 99, 235, 0.04);
-    --accent-primary: #2563eb;
-    --accent-gradient: linear-gradient(135deg, #1d4ed8 0%, #7c3aed 50%, #db2777 100%);
-    --accent-gradient-soft: linear-gradient(135deg, rgba(37,99,235,0.08) 0%, rgba(124,58,237,0.08) 50%, rgba(219,39,119,0.08) 100%);
+    --border-color: #e2e8f0;
+    --border-focus: #0284c7;
+    --accent-primary: #0284c7;
+    --accent-hover: #0369a1;
+    --accent-soft: #f0f9ff;
+    --accent-soft-border: #bae6fd;
     --text-primary: #0f172a;
     --text-secondary: #475569;
     --text-muted: #64748b;
@@ -78,10 +79,10 @@ st.markdown("""
     --severity-moderate: #d97706;
     --severity-high: #dc2626;
     --severity-critical: #b91c1c;
-    --border-radius: 16px;
-    --card-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
-    --card-shadow-hover: 0 16px 36px -4px rgba(37, 99, 235, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.03);
-    --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    --border-radius: 14px;
+    --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+    --card-shadow-hover: 0 10px 25px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
+    --transition: all 0.2s ease-in-out;
 }
 
 /* ── Global Overrides ── */
@@ -108,26 +109,23 @@ header[data-testid="stHeader"] {
 /* ── Sidebar ── */
 section[data-testid="stSidebar"] {
     background: #ffffff !important;
-    border-right: 1px solid #e2e8f0 !important;
-    box-shadow: 2px 0 12px rgba(0,0,0,0.02) !important;
+    border-right: 1px solid var(--border-color) !important;
 }
 
 section[data-testid="stSidebar"] .stMarkdown h1,
 section[data-testid="stSidebar"] .stMarkdown h2,
 section[data-testid="stSidebar"] .stMarkdown h3 {
     font-family: 'Plus Jakarta Sans', sans-serif !important;
-    background: var(--accent-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: #0f172a !important;
     font-weight: 700 !important;
+    letter-spacing: -0.01em;
 }
 
 section[data-testid="stSidebar"] label {
     color: var(--text-secondary) !important;
     font-size: 0.82rem !important;
     font-weight: 600 !important;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
 }
 
 section[data-testid="stSidebar"] .stTextInput > div > div,
@@ -135,7 +133,7 @@ section[data-testid="stSidebar"] .stNumberInput > div > div > input,
 section[data-testid="stSidebar"] .stSelectbox > div > div {
     background: #f8fafc !important;
     border: 1px solid #cbd5e1 !important;
-    border-radius: 10px !important;
+    border-radius: 8px !important;
     color: var(--text-primary) !important;
     transition: var(--transition) !important;
 }
@@ -143,9 +141,9 @@ section[data-testid="stSidebar"] .stSelectbox > div > div {
 section[data-testid="stSidebar"] .stTextInput > div > div:focus-within,
 section[data-testid="stSidebar"] .stNumberInput > div > div:focus-within,
 section[data-testid="stSidebar"] .stSelectbox > div > div:focus-within {
-    border-color: var(--accent-primary) !important;
+    border-color: var(--border-focus) !important;
     background: #ffffff !important;
-    box-shadow: 0 0 0 3px rgba(37,99,235,0.12) !important;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15) !important;
 }
 
 section[data-testid="stSidebar"] .stCheckbox label span {
@@ -167,25 +165,16 @@ section[data-testid="stSidebar"] .stCheckbox label span {
 }
 
 .hero-header .hero-icon {
-    font-size: 3.2rem;
+    font-size: 3rem;
     margin-bottom: 0.5rem;
-    filter: drop-shadow(0 4px 16px rgba(37,99,235,0.25));
-    animation: float 3s ease-in-out infinite;
-}
-
-@keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-6px); }
+    color: var(--accent-primary);
 }
 
 .hero-header h1 {
     font-family: 'Plus Jakarta Sans', sans-serif !important;
-    font-size: 2.8rem !important;
+    font-size: 2.6rem !important;
     font-weight: 800 !important;
-    background: var(--accent-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: #0f172a !important;
     margin: 0 0 0.5rem !important;
     line-height: 1.15 !important;
     letter-spacing: -0.03em;
@@ -195,7 +184,6 @@ section[data-testid="stSidebar"] .stCheckbox label span {
     color: var(--text-secondary);
     font-size: 1.05rem;
     font-weight: 400;
-    letter-spacing: 0.01em;
     max-width: 600px;
     margin: 0 auto;
 }
@@ -206,7 +194,7 @@ section[data-testid="stSidebar"] .stCheckbox label span {
     align-items: center;
     gap: 0.75rem;
     padding: 0.85rem 1.25rem;
-    border-radius: 12px;
+    border-radius: 10px;
     margin-bottom: 1.5rem;
     font-size: 0.88rem;
     font-weight: 600;
@@ -225,42 +213,24 @@ section[data-testid="stSidebar"] .stCheckbox label span {
 }
 
 .status-banner .status-dot {
-    width: 9px;
-    height: 9px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     flex-shrink: 0;
-    animation: pulse-dot 2s infinite;
 }
 
-.status-banner.success .status-dot { background: #22c55e; }
-.status-banner.warning .status-dot { background: #f59e0b; }
+.status-banner.success .status-dot { background: #16a34a; }
+.status-banner.warning .status-dot { background: #d97706; }
 
-@keyframes pulse-dot {
-    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(37,99,235,0.4); }
-    50% { opacity: 0.6; box-shadow: 0 0 0 6px rgba(37,99,235,0); }
-}
-
-/* ── Glass/White Card ── */
+/* ── Clean White Card ── */
 .glass-card {
-    background: var(--bg-card);
-    border: 1px solid var(--glass-border);
+    background: #ffffff;
+    border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     padding: 1.75rem;
     margin-bottom: 1.25rem;
     transition: var(--transition);
     box-shadow: var(--card-shadow);
-    position: relative;
-    overflow: hidden;
-}
-
-.glass-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, rgba(37,99,235,0.4), transparent);
 }
 
 .glass-card:hover {
@@ -291,13 +261,12 @@ section[data-testid="stSidebar"] .stCheckbox label span {
     border-radius: var(--border-radius) !important;
     transition: var(--transition) !important;
     padding: 2rem !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.02) !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02) !important;
 }
 
 .stFileUploader > div:hover {
     border-color: var(--accent-primary) !important;
     background: #f8fafc !important;
-    box-shadow: 0 6px 20px rgba(37,99,235,0.08) !important;
 }
 
 .stFileUploader label {
@@ -305,46 +274,43 @@ section[data-testid="stSidebar"] .stCheckbox label span {
     font-weight: 600 !important;
 }
 
-/* ── Button ── */
+/* ── Primary Action Button ── */
 .stButton > button {
-    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+    background: #0284c7 !important;
     color: #ffffff !important;
     border: none !important;
-    border-radius: 12px !important;
+    border-radius: 10px !important;
     padding: 0.75rem 2.5rem !important;
     font-family: 'Inter', sans-serif !important;
     font-weight: 600 !important;
     font-size: 0.95rem !important;
-    letter-spacing: 0.01em;
     transition: var(--transition) !important;
-    box-shadow: 0 4px 14px rgba(37,99,235,0.3) !important;
+    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25) !important;
 }
 
 .stButton > button:hover {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 8px 24px rgba(37,99,235,0.4) !important;
-    background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
+    background: #0369a1 !important;
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35) !important;
 }
 
 .stButton > button:active {
-    transform: translateY(0) !important;
+    background: #075985 !important;
 }
 
-/* ── Download Button ── */
+/* ── Secondary Download Button ── */
 .stDownloadButton > button {
-    background: linear-gradient(135deg, #eff6ff 0%, #ede9fe 100%) !important;
-    color: #1d4ed8 !important;
-    border: 1px solid #bfdbfe !important;
-    border-radius: 12px !important;
+    background: #f0f9ff !important;
+    color: #0369a1 !important;
+    border: 1px solid #bae6fd !important;
+    border-radius: 10px !important;
     font-weight: 600 !important;
     transition: var(--transition) !important;
-    box-shadow: 0 2px 8px rgba(37,99,235,0.08) !important;
 }
 
 .stDownloadButton > button:hover {
-    background: linear-gradient(135deg, #dbeafe 0%, #ddd6fe 100%) !important;
-    border-color: #93c5fd !important;
-    box-shadow: 0 6px 18px rgba(37,99,235,0.16) !important;
+    background: #e0f2fe !important;
+    border-color: #7dd3fc !important;
+    color: #0284c7 !important;
 }
 
 /* ── Metric Cards Grid ── */
@@ -357,8 +323,8 @@ section[data-testid="stSidebar"] .stCheckbox label span {
 
 .metric-card {
     background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
     padding: 1.25rem 1.5rem;
     position: relative;
     overflow: hidden;
@@ -376,12 +342,12 @@ section[data-testid="stSidebar"] .stCheckbox label span {
     border-radius: 4px 4px 0 0;
 }
 
-.metric-card.blue::before { background: linear-gradient(90deg, #2563eb, #3b82f6); }
-.metric-card.purple::before { background: linear-gradient(90deg, #7c3aed, #8b5cf6); }
-.metric-card.green::before { background: linear-gradient(90deg, #16a34a, #22c55e); }
-.metric-card.amber::before { background: linear-gradient(90deg, #d97706, #f59e0b); }
-.metric-card.red::before { background: linear-gradient(90deg, #dc2626, #ef4444); }
-.metric-card.pink::before { background: linear-gradient(90deg, #db2777, #ec4899); }
+.metric-card.blue::before { background: #0284c7; }
+.metric-card.purple::before { background: #6366f1; }
+.metric-card.green::before { background: #16a34a; }
+.metric-card.amber::before { background: #d97706; }
+.metric-card.red::before { background: #dc2626; }
+.metric-card.pink::before { background: #0d9488; }
 
 .metric-card:hover {
     border-color: #cbd5e1;
@@ -421,7 +387,6 @@ section[data-testid="stSidebar"] .stCheckbox label span {
     border-radius: 50px;
     font-weight: 700;
     font-size: 0.95rem;
-    letter-spacing: 0.02em;
 }
 
 .detection-badge.detected {
@@ -437,20 +402,17 @@ section[data-testid="stSidebar"] .stCheckbox label span {
 }
 
 .detection-badge .badge-dot {
-    width: 10px;
-    height: 10px;
+    width: 9px;
+    height: 9px;
     border-radius: 50%;
 }
 
 .detection-badge.detected .badge-dot {
-    background: #ef4444;
-    box-shadow: 0 0 10px rgba(239,68,68,0.4);
-    animation: pulse-dot 1.5s infinite;
+    background: #dc2626;
 }
 
 .detection-badge.clear .badge-dot {
-    background: #22c55e;
-    box-shadow: 0 0 10px rgba(34,197,94,0.4);
+    background: #16a34a;
 }
 
 /* ── Severity Badge ── */
@@ -459,7 +421,7 @@ section[data-testid="stSidebar"] .stCheckbox label span {
     align-items: center;
     gap: 0.35rem;
     padding: 0.3rem 0.85rem;
-    border-radius: 8px;
+    border-radius: 6px;
     font-weight: 700;
     font-size: 0.82rem;
     text-transform: uppercase;
@@ -512,7 +474,7 @@ section[data-testid="stSidebar"] .stCheckbox label span {
     border-radius: 12px;
     padding: 1.1rem 1.35rem;
     margin-top: 0.85rem;
-    box-shadow: 0 8px 24px -4px rgba(239, 68, 68, 0.08), 0 2px 6px rgba(0, 0, 0, 0.02);
+    box-shadow: 0 4px 14px rgba(220, 38, 38, 0.06);
 }
 
 .tumor-details-overlay .detail-row {
@@ -543,7 +505,7 @@ section[data-testid="stSidebar"] .stCheckbox label span {
 /* ── Section Divider ── */
 .section-divider {
     height: 1px;
-    background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
+    background: #e2e8f0;
     margin: 2rem 0;
 }
 
@@ -551,8 +513,8 @@ section[data-testid="stSidebar"] .stCheckbox label span {
 .streamlit-expanderHeader {
     background: #ffffff !important;
     border: 1px solid #e2e8f0 !important;
-    border-radius: 12px !important;
-    color: var(--text-primary) !important;
+    border-radius: 10px !important;
+    color: #0f172a !important;
     font-weight: 600 !important;
     transition: var(--transition) !important;
 }
@@ -566,7 +528,7 @@ section[data-testid="stSidebar"] .stCheckbox label span {
     background: #ffffff !important;
     border: 1px solid #e2e8f0 !important;
     border-top: none !important;
-    border-radius: 0 0 12px 12px !important;
+    border-radius: 0 0 10px 10px !important;
 }
 
 /* ── Spinner ── */
@@ -589,7 +551,7 @@ h1, h2, h3, h4, h5, h6 {
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 1.35rem;
     font-weight: 700;
-    color: var(--text-primary);
+    color: #0f172a;
     margin: 2rem 0 1rem;
     display: flex;
     align-items: center;
@@ -604,7 +566,7 @@ h1, h2, h3, h4, h5, h6 {
 .stAlert {
     background: #ffffff !important;
     border: 1px solid #e2e8f0 !important;
-    border-radius: 12px !important;
+    border-radius: 10px !important;
     color: var(--text-secondary) !important;
     box-shadow: var(--card-shadow) !important;
 }
@@ -624,7 +586,7 @@ h1, h2, h3, h4, h5, h6 {
 .hospital-card {
     background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 14px;
+    border-radius: 12px;
     padding: 1.25rem 1.5rem;
     margin-bottom: 0.75rem;
     transition: var(--transition);
@@ -632,7 +594,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .hospital-card:hover {
-    border-color: #93c5fd;
+    border-color: #bae6fd;
     box-shadow: var(--card-shadow-hover);
     transform: translateY(-2px);
 }
@@ -641,7 +603,7 @@ h1, h2, h3, h4, h5, h6 {
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 1.05rem;
     font-weight: 700;
-    color: var(--text-primary);
+    color: #0f172a;
     margin-bottom: 0.3rem;
 }
 
@@ -664,14 +626,14 @@ h1, h2, h3, h4, h5, h6 {
     font-family: 'JetBrains Mono', monospace;
     font-weight: 700;
     font-size: 1.1rem;
-    color: #1d4ed8;
+    color: #0284c7;
 }
 
 /* ── Lifestyle Category ── */
 .lifestyle-category {
     background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 14px;
+    border-radius: 12px;
     padding: 1.25rem 1.5rem;
     margin-bottom: 0.75rem;
     transition: var(--transition);
@@ -687,7 +649,7 @@ h1, h2, h3, h4, h5, h6 {
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-weight: 700;
     font-size: 0.95rem;
-    color: var(--text-primary);
+    color: #0f172a;
     margin-bottom: 0.6rem;
     display: flex;
     align-items: center;
@@ -744,13 +706,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .nc-step.active {
-    background: var(--accent-gradient-soft);
-    border-color: #93c5fd;
-    color: var(--accent-primary);
+    background: #f0f9ff;
+    border-color: #bae6fd;
+    color: #0369a1;
 }
 
 .nc-step.active .nc-step-num {
-    background: var(--accent-primary);
+    background: #0284c7;
     color: #fff;
 }
 
@@ -785,12 +747,12 @@ h1, h2, h3, h4, h5, h6 {
 .confidence-meter .confidence-fill {
     height: 100%;
     border-radius: 8px;
-    transition: width 0.6s ease;
+    transition: width 0.4s ease;
 }
 
-.confidence-meter .confidence-fill.danger { background: linear-gradient(90deg, #dc2626, #ef4444); }
-.confidence-meter .confidence-fill.safe { background: linear-gradient(90deg, #16a34a, #22c55e); }
-.confidence-meter .confidence-fill.info { background: linear-gradient(90deg, #2563eb, #7c3aed); }
+.confidence-meter .confidence-fill.danger { background: #dc2626; }
+.confidence-meter .confidence-fill.safe { background: #16a34a; }
+.confidence-meter .confidence-fill.info { background: #0284c7; }
 
 /* ── Upload Info Chip ── */
 .upload-info-chip {
@@ -811,7 +773,7 @@ h1, h2, h3, h4, h5, h6 {
 .patient-snapshot {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
-    border-radius: 10px;
+    border-radius: 8px;
     padding: 0.6rem 0.85rem;
     font-size: 0.78rem;
     color: var(--text-secondary);
@@ -824,30 +786,31 @@ h1, h2, h3, h4, h5, h6 {
     position: fixed;
     bottom: 24px;
     right: 24px;
-    width: 44px;
-    height: 44px;
+    width: 42px;
+    height: 42px;
     border-radius: 50%;
-    background: var(--accent-gradient);
+    background: #0284c7;
     color: #ffffff !important;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     text-decoration: none !important;
-    box-shadow: 0 8px 20px rgba(37,99,235,0.35);
+    box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
     z-index: 999;
     transition: var(--transition);
 }
 
 .nc-back-to-top:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 28px rgba(37,99,235,0.45);
+    background: #0369a1;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(2, 132, 199, 0.45);
 }
 
 /* ── Accessibility: visible focus states ── */
 .stButton > button:focus-visible,
 .stDownloadButton > button:focus-visible {
-    outline: 3px solid rgba(37,99,235,0.5) !important;
+    outline: 2px solid #0284c7 !important;
     outline-offset: 2px !important;
 }
 
