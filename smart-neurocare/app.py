@@ -53,38 +53,40 @@ SEGMENTATION_CKPT = "best_segmentation_model.pt"
 using_trained_weights = all(os.path.exists(p) for p in [DETECTION_CKPT, CLASSIFICATION_CKPT, SEGMENTATION_CKPT])
 
 # ---------------------------------------------------------------------------
-# Custom CSS — Premium 2026 Medical Dark Theme
+# Custom CSS — Premium Clinical Light Theme
 # ---------------------------------------------------------------------------
 st.markdown("""
 <style>
 /* ── Google Fonts ── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-/* ── Root Variables ── */
+/* ── Root Variables — Clinical Light Theme ── */
 :root {
-    --bg-primary: #060b18;
-    --bg-secondary: #0c1225;
-    --bg-card: rgba(15, 23, 50, 0.65);
-    --bg-card-hover: rgba(20, 30, 65, 0.8);
-    --glass-border: rgba(100, 140, 255, 0.12);
-    --glass-glow: rgba(80, 120, 255, 0.06);
-    --accent-primary: #4f8cff;
-    --accent-gradient: linear-gradient(135deg, #4f8cff 0%, #a855f7 50%, #ec4899 100%);
-    --accent-gradient-soft: linear-gradient(135deg, rgba(79,140,255,0.15) 0%, rgba(168,85,247,0.15) 50%, rgba(236,72,153,0.15) 100%);
-    --text-primary: #e8ecf4;
-    --text-secondary: #8b95b0;
-    --text-muted: #5a6480;
-    --severity-low: #22c55e;
-    --severity-moderate: #f59e0b;
-    --severity-high: #ef4444;
-    --severity-critical: #dc2626;
+    --bg-primary: #f8fafc;
+    --bg-secondary: #ffffff;
+    --bg-card: #ffffff;
+    --bg-card-hover: #fcfdfe;
+    --glass-border: #e2e8f0;
+    --glass-glow: rgba(37, 99, 235, 0.04);
+    --accent-primary: #2563eb;
+    --accent-gradient: linear-gradient(135deg, #1d4ed8 0%, #7c3aed 50%, #db2777 100%);
+    --accent-gradient-soft: linear-gradient(135deg, rgba(37,99,235,0.08) 0%, rgba(124,58,237,0.08) 50%, rgba(219,39,119,0.08) 100%);
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --severity-low: #16a34a;
+    --severity-moderate: #d97706;
+    --severity-high: #dc2626;
+    --severity-critical: #b91c1c;
     --border-radius: 16px;
-    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --card-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+    --card-shadow-hover: 0 16px 36px -4px rgba(37, 99, 235, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.03);
+    --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ── Global Overrides ── */
 .stApp {
-    background: var(--bg-primary) !important;
+    background-color: var(--bg-primary) !important;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
     color: var(--text-primary) !important;
 }
@@ -99,14 +101,15 @@ header[data-testid="stHeader"] {
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: var(--bg-primary); }
-::-webkit-scrollbar-thumb { background: rgba(79,140,255,0.25); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(79,140,255,0.45); }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
 /* ── Sidebar ── */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0a1028 0%, #060b18 100%) !important;
-    border-right: 1px solid var(--glass-border) !important;
+    background: #ffffff !important;
+    border-right: 1px solid #e2e8f0 !important;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.02) !important;
 }
 
 section[data-testid="stSidebar"] .stMarkdown h1,
@@ -123,15 +126,15 @@ section[data-testid="stSidebar"] .stMarkdown h3 {
 section[data-testid="stSidebar"] label {
     color: var(--text-secondary) !important;
     font-size: 0.82rem !important;
-    font-weight: 500 !important;
+    font-weight: 600 !important;
     letter-spacing: 0.02em;
 }
 
 section[data-testid="stSidebar"] .stTextInput > div > div,
 section[data-testid="stSidebar"] .stNumberInput > div > div > input,
 section[data-testid="stSidebar"] .stSelectbox > div > div {
-    background: rgba(15, 23, 50, 0.8) !important;
-    border: 1px solid var(--glass-border) !important;
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
     border-radius: 10px !important;
     color: var(--text-primary) !important;
     transition: var(--transition) !important;
@@ -141,11 +144,13 @@ section[data-testid="stSidebar"] .stTextInput > div > div:focus-within,
 section[data-testid="stSidebar"] .stNumberInput > div > div:focus-within,
 section[data-testid="stSidebar"] .stSelectbox > div > div:focus-within {
     border-color: var(--accent-primary) !important;
-    box-shadow: 0 0 0 2px rgba(79,140,255,0.15) !important;
+    background: #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.12) !important;
 }
 
 section[data-testid="stSidebar"] .stCheckbox label span {
     color: var(--text-secondary) !important;
+    font-weight: 500 !important;
 }
 
 /* ── Main Content ── */
@@ -162,15 +167,15 @@ section[data-testid="stSidebar"] .stCheckbox label span {
 }
 
 .hero-header .hero-icon {
-    font-size: 3rem;
+    font-size: 3.2rem;
     margin-bottom: 0.5rem;
-    filter: drop-shadow(0 0 30px rgba(79,140,255,0.5));
+    filter: drop-shadow(0 4px 16px rgba(37,99,235,0.25));
     animation: float 3s ease-in-out infinite;
 }
 
 @keyframes float {
     0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-8px); }
+    50% { transform: translateY(-6px); }
 }
 
 .hero-header h1 {
@@ -182,7 +187,7 @@ section[data-testid="stSidebar"] .stCheckbox label span {
     -webkit-text-fill-color: transparent;
     background-clip: text;
     margin: 0 0 0.5rem !important;
-    line-height: 1.1 !important;
+    line-height: 1.15 !important;
     letter-spacing: -0.03em;
 }
 
@@ -204,25 +209,24 @@ section[data-testid="stSidebar"] .stCheckbox label span {
     border-radius: 12px;
     margin-bottom: 1.5rem;
     font-size: 0.88rem;
-    font-weight: 500;
-    backdrop-filter: blur(12px);
+    font-weight: 600;
 }
 
 .status-banner.success {
-    background: rgba(34, 197, 94, 0.08);
-    border: 1px solid rgba(34, 197, 94, 0.2);
-    color: #4ade80;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #15803d;
 }
 
 .status-banner.warning {
-    background: rgba(245, 158, 11, 0.08);
-    border: 1px solid rgba(245, 158, 11, 0.2);
-    color: #fbbf24;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    color: #b45309;
 }
 
 .status-banner .status-dot {
-    width: 8px;
-    height: 8px;
+    width: 9px;
+    height: 9px;
     border-radius: 50%;
     flex-shrink: 0;
     animation: pulse-dot 2s infinite;
@@ -232,20 +236,19 @@ section[data-testid="stSidebar"] .stCheckbox label span {
 .status-banner.warning .status-dot { background: #f59e0b; }
 
 @keyframes pulse-dot {
-    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(79,140,255,0.4); }
-    50% { opacity: 0.6; box-shadow: 0 0 0 6px rgba(79,140,255,0); }
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(37,99,235,0.4); }
+    50% { opacity: 0.6; box-shadow: 0 0 0 6px rgba(37,99,235,0); }
 }
 
-/* ── Glass Card ── */
+/* ── Glass/White Card ── */
 .glass-card {
     background: var(--bg-card);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--glass-border);
     border-radius: var(--border-radius);
     padding: 1.75rem;
     margin-bottom: 1.25rem;
     transition: var(--transition);
+    box-shadow: var(--card-shadow);
     position: relative;
     overflow: hidden;
 }
@@ -256,14 +259,14 @@ section[data-testid="stSidebar"] .stCheckbox label span {
     top: 0;
     left: 0;
     right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(79,140,255,0.3), transparent);
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(37,99,235,0.4), transparent);
 }
 
 .glass-card:hover {
     background: var(--bg-card-hover);
-    border-color: rgba(100, 140, 255, 0.2);
-    box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+    border-color: #cbd5e1;
+    box-shadow: var(--card-shadow-hover);
 }
 
 .glass-card .card-title {
@@ -283,28 +286,29 @@ section[data-testid="stSidebar"] .stCheckbox label span {
 
 /* ── File Uploader ── */
 .stFileUploader > div {
-    background: var(--bg-card) !important;
-    border: 2px dashed rgba(79,140,255,0.25) !important;
+    background: #ffffff !important;
+    border: 2px dashed #93c5fd !important;
     border-radius: var(--border-radius) !important;
     transition: var(--transition) !important;
     padding: 2rem !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02) !important;
 }
 
 .stFileUploader > div:hover {
-    border-color: rgba(79,140,255,0.5) !important;
-    background: rgba(15, 23, 50, 0.8) !important;
-    box-shadow: 0 0 30px rgba(79,140,255,0.08) !important;
+    border-color: var(--accent-primary) !important;
+    background: #f8fafc !important;
+    box-shadow: 0 6px 20px rgba(37,99,235,0.08) !important;
 }
 
 .stFileUploader label {
     color: var(--text-secondary) !important;
-    font-weight: 500 !important;
+    font-weight: 600 !important;
 }
 
 /* ── Button ── */
 .stButton > button {
-    background: var(--accent-gradient) !important;
-    color: white !important;
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+    color: #ffffff !important;
     border: none !important;
     border-radius: 12px !important;
     padding: 0.75rem 2.5rem !important;
@@ -313,12 +317,13 @@ section[data-testid="stSidebar"] .stCheckbox label span {
     font-size: 0.95rem !important;
     letter-spacing: 0.01em;
     transition: var(--transition) !important;
-    box-shadow: 0 4px 20px rgba(79,140,255,0.25) !important;
+    box-shadow: 0 4px 14px rgba(37,99,235,0.3) !important;
 }
 
 .stButton > button:hover {
     transform: translateY(-2px) !important;
-    box-shadow: 0 8px 30px rgba(79,140,255,0.35) !important;
+    box-shadow: 0 8px 24px rgba(37,99,235,0.4) !important;
+    background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
 }
 
 .stButton > button:active {
@@ -327,18 +332,19 @@ section[data-testid="stSidebar"] .stCheckbox label span {
 
 /* ── Download Button ── */
 .stDownloadButton > button {
-    background: linear-gradient(135deg, rgba(79,140,255,0.15), rgba(168,85,247,0.15)) !important;
-    color: var(--accent-primary) !important;
-    border: 1px solid rgba(79,140,255,0.3) !important;
+    background: linear-gradient(135deg, #eff6ff 0%, #ede9fe 100%) !important;
+    color: #1d4ed8 !important;
+    border: 1px solid #bfdbfe !important;
     border-radius: 12px !important;
     font-weight: 600 !important;
     transition: var(--transition) !important;
+    box-shadow: 0 2px 8px rgba(37,99,235,0.08) !important;
 }
 
 .stDownloadButton > button:hover {
-    background: linear-gradient(135deg, rgba(79,140,255,0.25), rgba(168,85,247,0.25)) !important;
-    border-color: rgba(79,140,255,0.5) !important;
-    box-shadow: 0 4px 20px rgba(79,140,255,0.15) !important;
+    background: linear-gradient(135deg, #dbeafe 0%, #ddd6fe 100%) !important;
+    border-color: #93c5fd !important;
+    box-shadow: 0 6px 18px rgba(37,99,235,0.16) !important;
 }
 
 /* ── Metric Cards Grid ── */
@@ -350,14 +356,14 @@ section[data-testid="stSidebar"] .stCheckbox label span {
 }
 
 .metric-card {
-    background: var(--bg-card);
-    backdrop-filter: blur(20px);
-    border: 1px solid var(--glass-border);
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
     border-radius: 14px;
     padding: 1.25rem 1.5rem;
     position: relative;
     overflow: hidden;
     transition: var(--transition);
+    box-shadow: var(--card-shadow);
 }
 
 .metric-card::before {
@@ -366,26 +372,26 @@ section[data-testid="stSidebar"] .stCheckbox label span {
     top: 0;
     left: 0;
     right: 0;
-    height: 3px;
-    border-radius: 3px 3px 0 0;
+    height: 4px;
+    border-radius: 4px 4px 0 0;
 }
 
-.metric-card.blue::before { background: linear-gradient(90deg, #4f8cff, #60a5fa); }
-.metric-card.purple::before { background: linear-gradient(90deg, #a855f7, #c084fc); }
-.metric-card.green::before { background: linear-gradient(90deg, #22c55e, #4ade80); }
-.metric-card.amber::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
-.metric-card.red::before { background: linear-gradient(90deg, #ef4444, #f87171); }
-.metric-card.pink::before { background: linear-gradient(90deg, #ec4899, #f472b6); }
+.metric-card.blue::before { background: linear-gradient(90deg, #2563eb, #3b82f6); }
+.metric-card.purple::before { background: linear-gradient(90deg, #7c3aed, #8b5cf6); }
+.metric-card.green::before { background: linear-gradient(90deg, #16a34a, #22c55e); }
+.metric-card.amber::before { background: linear-gradient(90deg, #d97706, #f59e0b); }
+.metric-card.red::before { background: linear-gradient(90deg, #dc2626, #ef4444); }
+.metric-card.pink::before { background: linear-gradient(90deg, #db2777, #ec4899); }
 
 .metric-card:hover {
-    border-color: rgba(100, 140, 255, 0.25);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    border-color: #cbd5e1;
+    box-shadow: var(--card-shadow-hover);
     transform: translateY(-2px);
 }
 
 .metric-card .metric-label {
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--text-muted);
@@ -419,15 +425,15 @@ section[data-testid="stSidebar"] .stCheckbox label span {
 }
 
 .detection-badge.detected {
-    background: rgba(239, 68, 68, 0.12);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    color: #f87171;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
 }
 
 .detection-badge.clear {
-    background: rgba(34, 197, 94, 0.12);
-    border: 1px solid rgba(34, 197, 94, 0.3);
-    color: #4ade80;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #16a34a;
 }
 
 .detection-badge .badge-dot {
@@ -438,13 +444,13 @@ section[data-testid="stSidebar"] .stCheckbox label span {
 
 .detection-badge.detected .badge-dot {
     background: #ef4444;
-    box-shadow: 0 0 12px rgba(239,68,68,0.5);
+    box-shadow: 0 0 10px rgba(239,68,68,0.4);
     animation: pulse-dot 1.5s infinite;
 }
 
 .detection-badge.clear .badge-dot {
     background: #22c55e;
-    box-shadow: 0 0 12px rgba(34,197,94,0.5);
+    box-shadow: 0 0 10px rgba(34,197,94,0.4);
 }
 
 /* ── Severity Badge ── */
@@ -461,27 +467,27 @@ section[data-testid="stSidebar"] .stCheckbox label span {
 }
 
 .severity-badge.low {
-    background: rgba(34,197,94,0.12);
-    color: #4ade80;
-    border: 1px solid rgba(34,197,94,0.25);
+    background: #f0fdf4;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
 }
 
 .severity-badge.moderate {
-    background: rgba(245,158,11,0.12);
-    color: #fbbf24;
-    border: 1px solid rgba(245,158,11,0.25);
+    background: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fde68a;
 }
 
 .severity-badge.high {
-    background: rgba(239,68,68,0.12);
-    color: #f87171;
-    border: 1px solid rgba(239,68,68,0.25);
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
 }
 
 .severity-badge.critical {
-    background: rgba(220,38,38,0.15);
-    color: #fca5a5;
-    border: 1px solid rgba(220,38,38,0.3);
+    background: #450a0a;
+    color: #fee2e2;
+    border: 1px solid #991b1b;
 }
 
 /* ── MRI Image Container ── */
@@ -489,8 +495,9 @@ section[data-testid="stSidebar"] .stCheckbox label span {
     position: relative;
     border-radius: var(--border-radius);
     overflow: hidden;
-    border: 1px solid var(--glass-border);
-    background: #000;
+    border: 1px solid #e2e8f0;
+    background: #0f172a;
+    box-shadow: var(--card-shadow);
 }
 
 .mri-container img {
@@ -498,23 +505,22 @@ section[data-testid="stSidebar"] .stCheckbox label span {
     display: block;
 }
 
-/* ── Tumor Tooltip (details on image) ── */
+/* ── Tumor Details Overlay ── */
 .tumor-details-overlay {
-    background: rgba(10, 14, 30, 0.92);
-    backdrop-filter: blur(16px);
-    border: 1px solid rgba(239, 68, 68, 0.3);
+    background: #ffffff;
+    border: 1px solid #fecaca;
     border-radius: 12px;
-    padding: 1rem 1.25rem;
-    margin-top: 0.75rem;
-    box-shadow: 0 4px 24px rgba(239,68,68,0.1);
+    padding: 1.1rem 1.35rem;
+    margin-top: 0.85rem;
+    box-shadow: 0 8px 24px -4px rgba(239, 68, 68, 0.08), 0 2px 6px rgba(0, 0, 0, 0.02);
 }
 
 .tumor-details-overlay .detail-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.4rem 0;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
+    padding: 0.45rem 0;
+    border-bottom: 1px solid #f1f5f9;
 }
 
 .tumor-details-overlay .detail-row:last-child {
@@ -522,8 +528,8 @@ section[data-testid="stSidebar"] .stCheckbox label span {
 }
 
 .tumor-details-overlay .detail-label {
-    color: var(--text-muted);
-    font-size: 0.82rem;
+    color: var(--text-secondary);
+    font-size: 0.84rem;
     font-weight: 500;
 }
 
@@ -537,14 +543,14 @@ section[data-testid="stSidebar"] .stCheckbox label span {
 /* ── Section Divider ── */
 .section-divider {
     height: 1px;
-    background: linear-gradient(90deg, transparent, var(--glass-border), transparent);
+    background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
     margin: 2rem 0;
 }
 
 /* ── Expander ── */
 .streamlit-expanderHeader {
-    background: var(--bg-card) !important;
-    border: 1px solid var(--glass-border) !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
     border-radius: 12px !important;
     color: var(--text-primary) !important;
     font-weight: 600 !important;
@@ -552,13 +558,13 @@ section[data-testid="stSidebar"] .stCheckbox label span {
 }
 
 .streamlit-expanderHeader:hover {
-    background: var(--bg-card-hover) !important;
-    border-color: rgba(100, 140, 255, 0.2) !important;
+    background: #f8fafc !important;
+    border-color: #cbd5e1 !important;
 }
 
 .streamlit-expanderContent {
-    background: rgba(10, 14, 30, 0.5) !important;
-    border: 1px solid var(--glass-border) !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
     border-top: none !important;
     border-radius: 0 0 12px 12px !important;
 }
@@ -596,37 +602,39 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ── Info/Warning boxes ── */
 .stAlert {
-    background: var(--bg-card) !important;
-    border: 1px solid var(--glass-border) !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
     border-radius: 12px !important;
     color: var(--text-secondary) !important;
+    box-shadow: var(--card-shadow) !important;
 }
 
 /* ── Disclaimer ── */
 .disclaimer {
     text-align: center;
-    padding: 1rem;
+    padding: 1.25rem 1rem;
     margin-top: 2rem;
     color: var(--text-muted);
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     font-style: italic;
-    border-top: 1px solid rgba(100,140,255,0.08);
+    border-top: 1px solid #e2e8f0;
 }
 
 /* ── Hospital Card ── */
 .hospital-card {
-    background: var(--bg-card);
-    border: 1px solid var(--glass-border);
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
     border-radius: 14px;
     padding: 1.25rem 1.5rem;
     margin-bottom: 0.75rem;
     transition: var(--transition);
+    box-shadow: var(--card-shadow);
 }
 
 .hospital-card:hover {
-    border-color: rgba(79,140,255,0.25);
-    background: var(--bg-card-hover);
-    box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+    border-color: #93c5fd;
+    box-shadow: var(--card-shadow-hover);
+    transform: translateY(-2px);
 }
 
 .hospital-card .hospital-name {
@@ -656,25 +664,23 @@ h1, h2, h3, h4, h5, h6 {
     font-family: 'JetBrains Mono', monospace;
     font-weight: 700;
     font-size: 1.1rem;
-    background: var(--accent-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: #1d4ed8;
 }
 
 /* ── Lifestyle Category ── */
 .lifestyle-category {
-    background: var(--bg-card);
-    border: 1px solid var(--glass-border);
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
     border-radius: 14px;
     padding: 1.25rem 1.5rem;
     margin-bottom: 0.75rem;
     transition: var(--transition);
+    box-shadow: var(--card-shadow);
 }
 
 .lifestyle-category:hover {
-    border-color: rgba(100,140,255,0.2);
-    background: var(--bg-card-hover);
+    border-color: #cbd5e1;
+    box-shadow: var(--card-shadow-hover);
 }
 
 .lifestyle-category .category-title {
@@ -895,6 +901,8 @@ if uploaded_file is not None:
         tumor_type = None
         classification_confidence = None
         max_diameter_mm = None
+        perpendicular_diameter_mm = None
+        product_bidirectional_mm2 = None
         area_mm2 = None
         severity = None
         overlay_path = None
@@ -1117,7 +1125,7 @@ if uploaded_file is not None:
             icon = category_icons.get(category, "📌")
             title = category.replace("_", " ").title()
             items_html = "".join(f"<li>{item}</li>" for item in items)
-            is_warning = "border-color: rgba(239,68,68,0.3);" if category == "warning_signs" else ""
+            is_warning = "border-color: #fca5a5; background: #fff8f8;" if category == "warning_signs" else ""
 
             st.markdown(f"""
             <div class="lifestyle-category" style="{is_warning}">
