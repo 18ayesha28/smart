@@ -1225,15 +1225,21 @@ else:
         with res_tab2:
             st.markdown("<p style='font-size:0.85rem; color:#475569;'>Multi-criteria ranked neurosurgical centers filtered by surgical tier, proximity, and insurance compatibility:</p>", unsafe_allow_html=True)
             matched_hospitals = recommend_hospitals(patient, analysis, default_hospitals(), top_n=4)
-            for h, score, reasons in matched_hospitals:
+            for h in matched_hospitals:
+                h_name = h.get("name", "Neurosurgical Centre")
+                h_city = h.get("city", "")
+                h_score = h.get("match_score", 0.0)
+                h_dist = h.get("distance_km", 0.0)
+                reasons = h.get("match_reasons", {})
+                city_label = f" ({h_city})" if h_city else ""
                 st.markdown(f"""
                 <div class="hospital-card">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span class="hospital-name">🏥 {h.name} ({h.city})</span>
-                        <span class="match-score">Match: {score*100:.0f}%</span>
+                        <span class="hospital-name">🏥 {h_name}{city_label}</span>
+                        <span class="match-score">Match: {h_score*100:.0f}%</span>
                     </div>
                     <div class="hospital-meta">
-                        <span>📍 {reasons.get('distance_km', 'N/A')} km</span>
+                        <span>📍 {h_dist} km away</span>
                         <span>🎯 Specialization: {reasons.get('specialization_match', 'N/A')}</span>
                         <span>⭐ Quality: {reasons.get('hospital_quality', 'N/A')}</span>
                         <span>💰 Cost fit: {reasons.get('cost_fit', 'N/A')}</span>
