@@ -126,3 +126,28 @@ async def get_scan_status(
         upload_status="processed",
         analysis_id=str(uuid.uuid4()),
     )
+
+
+# ---------------------------------------------------------------------------
+# FastAPI Application Instance
+# ---------------------------------------------------------------------------
+from fastapi import FastAPI
+
+app = FastAPI(
+    title="Smart NeuroCare API",
+    description="Backend API for Smart NeuroCare Brain Tumor Detection & Healthcare System",
+    version="1.0.0",
+)
+
+app.include_router(router)
+
+
+@app.get("/")
+def root():
+    return {
+        "service": "Smart NeuroCare API",
+        "status": "healthy",
+        "docs_url": "/docs",
+        "version": "1.0.0",
+    }
+
